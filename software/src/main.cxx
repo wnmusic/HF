@@ -1,15 +1,14 @@
-#include <uhd/usrp/multi_usrp.hpp>
-#include <uhd/utils/safe_main.hpp>
-#include <uhd/utils/thread.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
-#include "uhd_rx.h"
 #include <string>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
+#include "imgui_plot.h"
+#include <thread>
+#include <math.h>
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
 #endif
@@ -20,12 +19,26 @@
 #if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
-
+#include <uhd/usrp/multi_usrp.hpp>
+#include <uhd/utils/safe_main.hpp>
+#include <uhd/utils/thread.hpp>
+#include "sdl_audio_impl.h"
+#include "spectrum.h"
+#include "demod_am.h"
+#include "uhd_rx.h"
+#include "waterfall.h"
+#include "volume_meter.h"
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+static void update_sel_freq(double freq, void*ctx)
+{
+    float *p_freq = (float*)ctx;
+    *p_freq = (float)freq;
+}
+ 
 int main(int, char**)
 {
     // Setup window
@@ -94,29 +107,72 @@ int main(int, char**)
     //IM_ASSERT(font != NULL);
 
     // Our state
-
+    double rf_sample_rate = 500000; //500KHz
+    double rf_band_center = 21.25e6;
+    float curr_rf_gain = 20.0f;
+    float curr_tune_bandwidth = 3000;
+    float curr_wf_freq = 0;
+    float curr_rf_freq = rf_band_center;
+    
+    float curr_tune_freq = 21.300e6;
+    float curr_tune_bw = 3000;
+    int curr_demod_mode = AM_SSB_LSB_MODE;
+    
+    unsigned fft_size = 1024;
+    const int spec_hist_len = 256;
+    float *fft_mag = new float[fft_size];    
+    debug_buf < std::complex <float> > if_buf(fft_size);    
+    
+    std::complex<float> *cplx_data = new std::complex<float>[fft_size];
+    
+    spectrum spec(fft_size, true);
+    FILE *fp = fopen("uhd_hf.settings", "rb");
+    if (fp){
+        unsigned ret;
+        ret = fscanf(fp, "band_center: %le, sample_rate: %le\n", &rf_band_center, &rf_sample_rate);
+        ret = fscanf(fp, "rf: %e, bw: %e, mode: %d\n", &curr_rf_freq, &curr_tune_bandwidth, &curr_demod_mode);
+        ret = fscanf(fp, "if gain: %f\n", &curr_rf_gain);
+        fclose(fp);
+    }
+    
     std::string device("addr=192.168.1.21");
     std::string subdev("A:A");
     std::string ref("internal");
-    
-    
-    uhd_rx rx (device
-              ,subdev
-              ,ref
-              );
-    
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    uhd_rx *rx = new uhd_rx(device
+                           ,subdev
+                           ,ref
+                           ,fft_size
+                           ,rf_sample_rate
+                           ,rf_band_center
+                           ,10.0f /* this is the gain for the hardware */
+                           ,rf_sample_rate
+                           );
+    
+    rf_sample_rate = rx->get_sample_rate();
+    sink_ifce *audio = new sdl_audio_sink();
+
+    demod_am sig_chain(curr_demod_mode, (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0
+                      ,curr_tune_bw/rf_sample_rate*2.0
+                      ,rx
+                      ,audio);
+
+    sig_chain.set_fft_buf(&if_buf);
+    sig_chain.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
+    
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // Main loop
+    std::thread rx_thread(uhd_rx::start, rx);
+    std::thread proc_thread(demod_am::start, &sig_chain);
+
+    ImGui::WaterFall wf(fft_size, spec_hist_len);
+    wf.init();
+    wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+    wf.updateFreqSel(curr_rf_freq);
+    wf.registerFreqSelHandler(update_sel_freq, &curr_wf_freq);
     while (!glfwWindowShouldClose(window))
     {
-        // Poll and handle events (inputs, window resize, etc.)
-        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-        // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+        unsigned nb_data, rate;
         glfwPollEvents();
 
         // Start the Dear ImGui frame
@@ -124,42 +180,83 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+        if (if_buf.read(cplx_data, nb_data, rate))        
         {
-            static float f = 0.0f;
-            static int counter = 0;
+            ImGui::Begin("FFT");
+            spec.process_complex(cplx_data, nb_data, false, fft_mag);
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+            wf.draw(fft_mag);
+            
+            ImGui::End();
+        }
 
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
+        {
+            float band_center_MHz = rf_band_center/1e6;
+            float rate_MHz = rf_sample_rate/1e6;
+            
+            float rf_freq = curr_wf_freq;
+            float gain = curr_rf_gain;
+            float bw = curr_tune_bandwidth;
+            float aud_vol;
+            int mode = curr_demod_mode;
+            ImGui::Begin("Control & Display", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+            
+            ImGui::InputFloat("BandCenter", &band_center_MHz, 0.01f, 1.0f, "%.2f MHz");
+            ImGui::InputFloat("SampleRate", &rate_MHz, 0.01f, 1.0f, "%.2f MHz");
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+            if (band_center_MHz*1e6 != rf_band_center){
+                rf_band_center = band_center_MHz*1e6;                
+                rx->set_rf_freq(rf_band_center);
+                wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+            }
 
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
+            if (rate_MHz*1e6 != rf_sample_rate){
+                rf_sample_rate = rate_MHz*1e6;                
+                rx->set_sample_rate(rf_sample_rate);
+                rx->set_if_bandwidth(rf_sample_rate/2);
+                wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+            }
+            
+            sig_chain.get_signal_power(&aud_vol);
+            ImGui::VolumeMeter(aud_vol, 0.0, -60.0f, 0.0f, ImVec2(180, 20));
+            ImGui::NewLine();
+            ImGui::SliderFloat("Gain", &gain, 10.0f, 60.0f, "%.2f dB");
+            if (gain != curr_rf_gain){
+                curr_rf_gain = gain;
+                sig_chain.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
+            }
+            
+            ImGui::NewLine();
+            ImGui::InputFloat("Freq", &rf_freq, 10.0f, 1000.0f, "%.6e Hz");
+            ImGui::SliderFloat("BandWidth", &bw, 2e3f, 10e3f, "%.3g");
+            ImGui::RadioButton("DSB", &mode, AM_DSB_MODE); ImGui::SameLine();
+            ImGui::RadioButton("USB", &mode, AM_SSB_USB_MODE); ImGui::SameLine();
+            ImGui::RadioButton("LSB", &mode, AM_SSB_LSB_MODE);
+
+            if (rf_freq != curr_wf_freq)
+            {
+                wf.updateFreqSel(rf_freq);
+                curr_wf_freq = rf_freq;
+            }
+
+            if (bw != curr_tune_bandwidth || rf_freq != curr_rf_freq || mode != curr_demod_mode){
+                sig_chain.tune(mode, rf_freq, bw);
+                curr_tune_bandwidth = bw;
+                curr_rf_freq = rf_freq;
+                curr_demod_mode = mode;
+            }
+
             ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            if (ImGui::Button("Save")){
+                FILE *fp = fopen("uhd_hf.settings", "w");
+                fprintf(fp, "band_center: %.6le, sample_rate: %6le\n", rf_band_center, rf_sample_rate);                
+                fprintf(fp, "rf: %.6le, bw: %.6le, mode: %d\n", curr_rf_freq, curr_tune_bandwidth, curr_demod_mode);
+                fprintf(fp, "if gain: %.6f\n", curr_rf_gain);
+                fclose(fp);
+            }
             ImGui::End();
-        }
-
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
-            ImGui::End();
-        }
+        }        
 
         // Rendering
         ImGui::Render();
@@ -172,7 +269,13 @@ int main(int, char**)
 
         glfwSwapBuffers(window);
     }
+    
+    uhd_rx::stop(rx);    
+    sig_chain.stop();
 
+    
+    rx_thread.join();
+    proc_thread.join();
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -181,6 +284,11 @@ int main(int, char**)
     glfwDestroyWindow(window);
     glfwTerminate();
 
+
+    delete[] fft_mag;
+    delete[] cplx_data;
+    delete rx;
+    delete audio;
     return 0;
 }
 

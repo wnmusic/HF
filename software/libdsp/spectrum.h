@@ -48,6 +48,7 @@ public:
         if (m_b_average){
             unsigned j = d_start;
             float pwr;
+
             for(unsigned i=fft_size/2; i<fft_size; i++, j+=d_inc){
                 pwr = (fft_out[i][0]*fft_out[i][0] + fft_out[i][1]*fft_out[i][1])*norm_factor;
                 spec[j] = spec[j]*m_alpha + (1.0f-m_alpha) * pwr;
@@ -57,10 +58,12 @@ public:
                 pwr = (fft_out[i][0]*fft_out[i][0] + fft_out[i][1]*fft_out[i][1])*norm_factor;
                 spec[j] = spec[j]*m_alpha + (1.0f-m_alpha) * pwr;
                 out[j] = 10.0f*log10f(spec[j]);
-            }                
+            }
+
         }else{
             unsigned j = d_start;
             float pwr;
+
             for(unsigned i=fft_size/2; i<fft_size; i++, j+=d_inc){
                 pwr = (fft_out[i][0]*fft_out[i][0] + fft_out[i][1]*fft_out[i][1])*norm_factor;
                 out[j] = 10.0f*log10f(pwr);
@@ -69,6 +72,7 @@ public:
                 pwr = (fft_out[i][0]*fft_out[i][0] + fft_out[i][1]*fft_out[i][1])*norm_factor;
                 out[j] = 10.0f*log10f(pwr);
             }
+
         }
 
         return;

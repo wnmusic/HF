@@ -30,6 +30,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RESAMPLE_H_
 #define RESAMPLE_H_
 
+static const float def_taps[] = {
+    4.154052476224024e-06, 6.836163811385632e-05, 0.000311697949655354, 0.0005662626936100423, -0.00019575881015043706, -0.004200732801109552, -0.013667905703186989, -0.027301859110593796, -0.03584320470690727, -0.02054252102971077, 0.04132149741053581, 0.16359668970108032, 0.33717116713523865, 0.5246731638908386, 0.670900285243988, 0.7262777090072632, 0.6709002256393433, 0.5246731042861938, 0.33717113733291626, 0.16359665989875793, 0.04132148623466492, -0.020542524755001068, -0.03584319353103638, -0.027301862835884094, -0.013667899183928967, -0.004200733732432127, -0.0001957584754563868, 0.000566263624932617, 0.0003116970765404403, 6.836453394498676e-05, 4.154052476224024e-06
+};
+static const int def_upsample = 4;
+
+
 class resample
 {
 public:
@@ -37,6 +43,9 @@ public:
      * upsample defines how much upsampling 
      * blksize is the number of samples processed on each process call */
     resample(const float *taps, int n_taps, int upsample, int blksize);
+    resample(int blksize) : resample(def_taps, sizeof(def_taps)/sizeof(float), def_upsample,  blksize){}
+
+            
     ~resample();
 
     /* given a rate of "how many" input samples (step size, like 1.52) to 
@@ -57,7 +66,7 @@ private:
     float           m_mu;
     float           m_last_remain;
     bool            m_is_leftover;
-    
+
 };
 
 

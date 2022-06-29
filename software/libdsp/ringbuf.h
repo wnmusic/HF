@@ -100,6 +100,28 @@ public:
         return len;
     }
 
+    int read(T* dst, int len){
+
+        if (len > get_count()){
+            return 0;
+        }
+        
+        int sz1 = m_bufsize - m_rd_pos;
+        if (sz1 < len){
+            memcpy(dst, &m_buf[m_rd_pos], sz1*sizeof(T));
+            memcpy(&dst[sz1], m_buf, (len-sz1)*sizeof(T));
+            m_rd_pos = len - sz1;
+        }
+        else{
+            memcpy(dst, &m_buf[m_rd_pos], len*sizeof(T));
+            m_rd_pos += len;
+        }
+              
+        m_count -= len;
+        return len;
+    }
+            
+
     /* conv function consumes src_len data with type T and returns 
        number of bytes put into dst, dst should have enough space 
     */

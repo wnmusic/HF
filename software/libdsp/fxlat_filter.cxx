@@ -40,7 +40,9 @@ fxlat_filter::fxlat_filter(const float *taps, int n_taps, int dec, int blksize, 
 
     printf("ntaps: %d\n", n_taps);
     m_float_taps = (float*)volk_malloc(m_n_taps*sizeof(float), volk_get_alignment());
-    memcpy(m_float_taps, taps, sizeof(float)*m_n_taps);
+    if (taps){
+        memcpy(m_float_taps, taps, sizeof(float)*m_n_taps);
+    }
     
     m_taps = (lv_32fc_t*) volk_malloc(m_n_taps*sizeof(lv_32fc_t), volk_get_alignment());
 
@@ -52,12 +54,60 @@ fxlat_filter::fxlat_filter(const float *taps, int n_taps, int dec, int blksize, 
 
     m_phase = lv_cmake(1.0f, 0.0f);
     set_center(center);
+    m_bandwidth = 0.0f;
+}
+
+void
+fxlat_filter::fill_hamming_lpf(float norm_bw)
+{
+    unsigned M = m_n_taps -1;
+    float alpha = M*1.0f/2;
+    for (unsigned i=0; i<=M; i++){
+
+        float x = i*1.0f- alpha;
+        float w = 0.54f - 0.46f*cosf(2.0*M_PI*i/M);
+        if (fabs(x) < 1e-8f){
+            m_float_taps[i] = norm_bw;
+        }else{
+            m_float_taps[i] = sinf(norm_bw * M_PI * x) / (M_PI * x) * w;
+        }
+    }
+}
+
+fxlat_filter::fxlat_filter(int dec, int n_taps_per_poly, float bandwidth, int blksize):
+    fxlat_filter(NULL, n_taps_per_poly * dec, dec, blksize, 0.0f)
+{
+    /* hamming windowing FIR */
+    if (bandwidth > 1.0f/dec){
+        bandwidth = 1.0f/dec;
+    }
+    
+    fill_hamming_lpf(bandwidth);
+    m_bandwidth = bandwidth;
+}
+
+void
+fxlat_filter::set_bandwidth(float bw)
+{
+    if(m_bandwidth <= 0.0f){
+        return;
+    }
+
+    if (bw > 1.0f/m_poly){
+        bw = 1.0f/m_poly;
+    }
+
+    fill_hamming_lpf(bw);
+    set_center(m_center, m_offset);
+    m_bandwidth = bw;
+
 }
 
 fxlat_filter::~fxlat_filter()
 {
     volk_free(m_hist);    
     volk_free(m_taps);
+    volk_free(m_float_taps);
     volk_free(m_scratch);    
 }
 
@@ -65,16 +115,20 @@ fxlat_filter::~fxlat_filter()
  * trick as in gnuradio
  * make the filter bandpass at center frequency and decimate, and then, shift 
  * back to infalted center
+ * when we shift back, we can add a bit of offset for SSB  the offset is also
+ * normalized to orignal sample rate
  */
-void fxlat_filter::set_center(float center)
+
+void fxlat_filter::set_center(float center, float offset)
 {
     /* center is baesd on the sample rate before decimation */
     m_center = center > 1.0f ? 1.0f : center < -1.0f ? -1.0f : center;
+    m_offset = offset > 1.0f ? 1.0f : offset < -1.0f ? -1.0f : offset;
     /* notice that m_taps is the filipped version of taps */
     for (unsigned i = m_n_taps -1, j=0; j<m_n_taps; i--,j++){
         m_taps[i] = m_float_taps[j] * lv_cmake(cosf(j*m_center*M_PI), sinf(j*m_center*M_PI));
     }
-    m_phase_inc = lv_cmake(cosf(m_center * M_PI * m_poly), -sinf(m_center * M_PI * m_poly));
+    m_phase_inc = lv_cmake(cosf((m_center + m_offset) * M_PI * m_poly), -sinf((m_center+m_offset) * M_PI * m_poly));
 }
 
 

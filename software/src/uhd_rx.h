@@ -9,8 +9,9 @@
 #include <mutex>
 #include "ringbuf.h"
 #include "debug_buf.h"
+#include "source_ifce.h"
 
-class uhd_rx
+class uhd_rx: public source_ifce
 {
 public:
     
@@ -37,7 +38,7 @@ public:
         m_rate = usrp->get_rx_rate();
         std::cout << boost::format("Actual RX Rate: %f Msps...") % ( usrp->get_rx_rate() / 1e6) << std::endl << std::endl;
     }
-    double get_sample_rate(void){return m_rate;}
+
 
     void set_rx_gain(double gain)
     {
@@ -58,9 +59,19 @@ public:
           ,double bw = 1e6
           );
     ~uhd_rx();
+    
     void work();
-    void stop();
-    unsigned recv_pkt(std::complex<float> *buf);
+    static  void start(void* ctx);
+    
+    static  void stop(void* ctx){
+        uhd_rx* obj = (uhd_rx*)ctx;
+        obj->m_stop_rx = true;
+    }
+
+            
+    virtual unsigned read(void* buf, int num_samples);
+    virtual double get_sample_rate(void);
+    virtual unsigned get_block_size(void){return m_pkt_size;}
 
 private:
     double m_rx_freq;
@@ -78,15 +89,13 @@ private:
     uhd::stream_args_t stream_args;
 
     std::complex<float> *m_dev_buf;
-    unsigned buf_wr_idx;
-    
     std::vector<std::complex<float>*> buff_ptrs;
+    
+    ring_buffer<std::complex<float>> *m_ringbuf;
 
     bool m_stop_rx;
-    std::complex<float> *m_usr_buf;
     std::mutex rx_mutex;
     std::condition_variable rx_condvar;
-    bool data_rdy;
     
 };
 

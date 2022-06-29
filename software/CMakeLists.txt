@@ -8,6 +8,7 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(uhd_hf CXX)
 set(CMAKE_CXX_STANDARD 11)
+set(OpenGL_GL_PREFERENCE "GLVND")
 
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
@@ -25,7 +26,7 @@ option(UHD_USE_STATIC_LIBS OFF)
 find_package(UHD 3.15.0 REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
-
+find_package(SDL2)
 
 # This example also requires Boost.
 # Set components here, then include UHDBoost to do the actual finding
@@ -40,6 +41,7 @@ include(UHDBoost)
 # need these include and link directories for the build
 include_directories(
     ${Boost_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRECTORY}
     ${UHD_INCLUDE_DIRS}
     libdsp
     imgui
@@ -49,7 +51,7 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp)
+add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/demod_am.cxx src/sdl_audio_impl.cxx src/waterfall.cxx)
 add_subdirectory(libdsp)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -61,7 +63,7 @@ endif()
 # anything else we need (in this case, some Boost libraries):
 if(NOT UHD_USE_STATIC_LIBS)
     message(STATUS "Linking against shared UHD library.")
-    target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} Libdsp glfw OpenGL::GL)
+    target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} Libdsp glfw OpenGL::GL ${SDL2_LIBRARIES} )
 # Shared library case: All we need to do is link against the library, and
 # anything else we need (in this case, some Boost libraries):
 else(NOT UHD_USE_STATIC_LIBS)
@@ -76,6 +78,7 @@ else(NOT UHD_USE_STATIC_LIBS)
         Libdsp
         glfw
         OpenGL::GL
+        ${SDL2_LIBRARIES} 
     )
 endif(NOT UHD_USE_STATIC_LIBS)
 
