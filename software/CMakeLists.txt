@@ -51,34 +51,19 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/demod_am.cxx src/sdl_audio_impl.cxx src/waterfall.cxx)
+add_library(hf src/demod_am.cxx)
+add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/sdl_audio_impl.cxx src/waterfall.cxx)
+
 add_subdirectory(libdsp)
 
 if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE "Release")
 endif()
+target_link_libraries(hf Libdsp)
+target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL ${SDL2_LIBRARIES} hf)
 
+enable_testing()
+add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)
+target_link_libraries(test_demod_am Libdsp)
 
-# Shared library case: All we need to do is link against the library, and
-# anything else we need (in this case, some Boost libraries):
-if(NOT UHD_USE_STATIC_LIBS)
-    message(STATUS "Linking against shared UHD library.")
-    target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} Libdsp glfw OpenGL::GL ${SDL2_LIBRARIES} )
-# Shared library case: All we need to do is link against the library, and
-# anything else we need (in this case, some Boost libraries):
-else(NOT UHD_USE_STATIC_LIBS)
-    message(STATUS "Linking against static UHD library.")
-    target_link_libraries(uhd_hf
-        # We could use ${UHD_LIBRARIES}, but linking requires some extra flags,
-        # so we use this convenience variable provided to us
-        ${UHD_STATIC_LIB_LINK_FLAG}
-        # Also, when linking statically, we need to pull in all the deps for
-        # UHD as well, because the dependencies don't get resolved automatically
-        ${UHD_STATIC_LIB_DEPS}
-        Libdsp
-        glfw
-        OpenGL::GL
-        ${SDL2_LIBRARIES} 
-    )
-endif(NOT UHD_USE_STATIC_LIBS)
-
+add_test(NAME test_demod_am COMMAND test_demod_am ${CMAKE_CURRENT_SOURCE_DIR}/test/FM_21.1M_sr500k_cf21.25M.data)

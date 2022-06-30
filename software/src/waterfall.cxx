@@ -55,7 +55,7 @@ inline double findBestRange(double bandwidth, int maxSteps) {
 static int cursor_to_idx(const ImVec2& pos, const ImRect& bb, int count) {
     const float t = ImClamp((pos.x - bb.Min.x) / (bb.Max.x - bb.Min.x), 0.0f, 0.9999f);
     const int v_idx = (int)(t*count);
-    IM_ASSERT(v_idx >= 0 && v_idx < conf.values.count);
+    IM_ASSERT(v_idx >= 0 && v_idx < count);
     return v_idx;
 }
 

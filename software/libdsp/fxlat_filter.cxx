@@ -74,7 +74,7 @@ fxlat_filter::fill_hamming_lpf(float norm_bw)
     }
 }
 
-fxlat_filter::fxlat_filter(int dec, int n_taps_per_poly, float bandwidth, int blksize):
+fxlat_filter::fxlat_filter(int dec, int n_taps_per_poly, float cf, float bandwidth, int blksize):
     fxlat_filter(NULL, n_taps_per_poly * dec, dec, blksize, 0.0f)
 {
     /* hamming windowing FIR */
@@ -84,6 +84,7 @@ fxlat_filter::fxlat_filter(int dec, int n_taps_per_poly, float bandwidth, int bl
     
     fill_hamming_lpf(bandwidth);
     m_bandwidth = bandwidth;
+    set_center(cf, bandwidth);
 }
 
 void

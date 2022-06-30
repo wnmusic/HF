@@ -110,12 +110,11 @@ int main(int, char**)
     double rf_sample_rate = 500000; //500KHz
     double rf_band_center = 21.25e6;
     float curr_rf_gain = 20.0f;
-    float curr_tune_bandwidth = 3000;
-    float curr_wf_freq = 0;
+
     float curr_rf_freq = rf_band_center;
-    
+    float curr_wf_freq = 0;
     float curr_tune_freq = 21.300e6;
-    float curr_tune_bw = 3000;
+    float curr_tune_bandwidth = 3000;    
     int curr_demod_mode = AM_SSB_LSB_MODE;
     
     unsigned fft_size = 1024;
@@ -148,12 +147,17 @@ int main(int, char**)
                            ,10.0f /* this is the gain for the hardware */
                            ,rf_sample_rate
                            );
-    
     rf_sample_rate = rx->get_sample_rate();
+    
     sink_ifce *audio = new sdl_audio_sink();
-
-    demod_am sig_chain(curr_demod_mode, (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0
-                      ,curr_tune_bw/rf_sample_rate*2.0
+    const double norm_ssb_offset = 3000.0/rf_sample_rate * 2.0;
+    double norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
+    double norm_bw = curr_tune_bandwidth/rf_sample_rate*2.0;
+    
+    demod_am sig_chain(curr_demod_mode
+                      ,norm_cf
+                      ,norm_bw
+                      ,norm_ssb_offset
                       ,rx
                       ,audio);
 
@@ -170,6 +174,7 @@ int main(int, char**)
     wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
     wf.updateFreqSel(curr_rf_freq);
     wf.registerFreqSelHandler(update_sel_freq, &curr_wf_freq);
+    
     while (!glfwWindowShouldClose(window))
     {
         unsigned nb_data, rate;
@@ -180,30 +185,24 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-
         if (if_buf.read(cplx_data, nb_data, rate))        
         {
-            ImGui::Begin("FFT");
+            ImGui::Begin("Spectrum");
             spec.process_complex(cplx_data, nb_data, false, fft_mag);
 
             wf.draw(fft_mag);
-            
             ImGui::End();
         }
 
         {
             float band_center_MHz = rf_band_center/1e6;
-            float rate_MHz = rf_sample_rate/1e6;
-            
             float rf_freq = curr_wf_freq;
             float gain = curr_rf_gain;
             float bw = curr_tune_bandwidth;
             float aud_vol;
             int mode = curr_demod_mode;
             ImGui::Begin("Control & Display", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-            
             ImGui::InputFloat("BandCenter", &band_center_MHz, 0.01f, 1.0f, "%.2f MHz");
-            ImGui::InputFloat("SampleRate", &rate_MHz, 0.01f, 1.0f, "%.2f MHz");
 
             if (band_center_MHz*1e6 != rf_band_center){
                 rf_band_center = band_center_MHz*1e6;                
@@ -211,13 +210,6 @@ int main(int, char**)
                 wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
             }
 
-            if (rate_MHz*1e6 != rf_sample_rate){
-                rf_sample_rate = rate_MHz*1e6;                
-                rx->set_sample_rate(rf_sample_rate);
-                rx->set_if_bandwidth(rf_sample_rate/2);
-                wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
-            }
-            
             sig_chain.get_signal_power(&aud_vol);
             ImGui::VolumeMeter(aud_vol, 0.0, -60.0f, 0.0f, ImVec2(180, 20));
             ImGui::NewLine();
@@ -240,10 +232,21 @@ int main(int, char**)
                 curr_wf_freq = rf_freq;
             }
 
-            if (bw != curr_tune_bandwidth || rf_freq != curr_rf_freq || mode != curr_demod_mode){
-                sig_chain.tune(mode, rf_freq, bw);
+            if (bw != curr_tune_bandwidth){
                 curr_tune_bandwidth = bw;
-                curr_rf_freq = rf_freq;
+            }
+            
+            if ((curr_rf_freq - rf_band_center)/rf_sample_rate*2.0 != norm_cf
+               || curr_tune_bandwidth/rf_sample_rate*2.0 != norm_bw
+               || mode != curr_demod_mode)
+            {
+                norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
+                norm_bw = curr_tune_bandwidth/rf_sample_rate*2.0;
+                sig_chain.tune(mode
+                              ,norm_cf
+                              ,norm_ssb_offset
+                              ,norm_bw
+                              );
                 curr_demod_mode = mode;
             }
 
@@ -273,7 +276,6 @@ int main(int, char**)
     uhd_rx::stop(rx);    
     sig_chain.stop();
 
-    
     rx_thread.join();
     proc_thread.join();
     // Cleanup
@@ -283,7 +285,6 @@ int main(int, char**)
 
     glfwDestroyWindow(window);
     glfwTerminate();
-
 
     delete[] fft_mag;
     delete[] cplx_data;

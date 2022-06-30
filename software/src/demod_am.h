@@ -17,6 +17,7 @@ public:
     demod_am(int          mode
             ,double       center_freq
             ,double       bw
+            ,double       ssb_off
             ,source_ifce *p_source
             ,sink_ifce   *p_sink
             );
@@ -47,7 +48,7 @@ public:
         p_if_buf = p_fft;
     }
 
-    void tune(int mode, float cf, float bw);
+    void tune(int mode, float cf, float ssb_offset, float bw);
 
     void work();
 
@@ -60,6 +61,7 @@ private:
     unsigned block_size, block_size2, aud_block_size;
     double center_freq;
     double demod_bw;
+    double ssb_offset;
     int demod_mode;
     bool starting;
     float m_aud_amp;

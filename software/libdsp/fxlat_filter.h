@@ -40,7 +40,7 @@ public:
    * by b_complex 
    */
     fxlat_filter(const float *taps, int n_taps, int decimate, int blksize, float center = 0.0f);
-    fxlat_filter(int dec, int n_taps_per_poly, float bandwidth, int blksize);    
+    fxlat_filter(int dec, int n_taps_per_poly, float center, float bandwidth, int blksize);    
     ~fxlat_filter();
     
     void set_center(float center, float offset=0.0f);

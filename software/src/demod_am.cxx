@@ -5,6 +5,7 @@
 demod_am::demod_am(int          mode
                   ,double       center_freq
                   ,double       bw
+                  ,double       ssb_off
                   ,source_ifce *p_source
                   ,sink_ifce   *p_sink
                   ): m_source(p_source)
@@ -20,11 +21,14 @@ demod_am::demod_am(int          mode
     aud_block_size = (unsigned) ceil(block_size2 * (audio_rate/input_rate*decimation));
     m_if_gain      = 1.0f;
 
-    m_filter       = new fxlat_filter(decimation, taps_per_poly, bw, block_size);
+    m_filter       = new fxlat_filter(decimation, taps_per_poly, center_freq, bw, block_size);
     m_resampler    = new resample(block_size2);
     p_scratch_buf[0] = new std::complex<float>[block_size];
     p_scratch_buf[1] = new std::complex<float>[block_size];
-    
+
+    p_if_buf = NULL;
+
+    tune(mode, center_freq, ssb_off, bw);
 }
 
 demod_am::~demod_am()
@@ -46,7 +50,7 @@ void demod_am::work(void)
     {
         unsigned nin = m_source->read(p_scratch_buf[1], block_size);
         
-        if (nin == 0){
+        if (nin < block_size){
             break;
         }
         if(p_if_buf){
@@ -58,7 +62,6 @@ void demod_am::work(void)
         }
         //down converter
         m_filter->process_c2c(p_scratch_buf[1], block_size, p_scratch_buf[0], block_size2);
-
         float *mag = (float*)p_scratch_buf[1];
         if (demod_mode == AM_DSB_MODE){
             volk_32fc_magnitude_32f(mag, p_scratch_buf[0], block_size2);
@@ -92,26 +95,28 @@ void demod_am::work(void)
         
         //insert to audio buffer
         float *aud = (float*)p_scratch_buf[0];
-        unsigned nout = m_resampler->process(mag, block_size2, aud, aud_block_size
+        unsigned nout = m_resampler->process(mag, block_size2,
+                                            aud, aud_block_size
                                             ,1.0f * input_rate/decimation/audio_rate);
 
         m_sink->write(aud, nout);
+
     }
 }
 
 
-void demod_am::tune(int mode, float cf, float bw)
+void demod_am::tune(int mode, float cf, float offset, float bw)
 {
-    if (demod_mode != mode || cf != center_freq)
+    if (demod_mode != mode || cf != center_freq || ssb_offset != offset)
     {
-        if (demod_mode == AM_DSB_MODE){
+        if (mode == AM_DSB_MODE){
             m_filter->set_center(cf);
         }
-        else if(demod_mode == AM_SSB_USB_MODE){
-            m_filter->set_center(cf+1500, cf);
+        else if(mode == AM_SSB_USB_MODE){
+            m_filter->set_center(cf+offset, -offset);
         }
-        else if(demod_mode == AM_SSB_USB_MODE){
-            m_filter->set_center(cf-1500, cf);
+        else if(mode == AM_SSB_LSB_MODE){
+            m_filter->set_center(cf-offset, offset);
         }
     }
 
@@ -123,5 +128,6 @@ void demod_am::tune(int mode, float cf, float bw)
     demod_bw = bw;
     center_freq = cf;
     demod_mode = mode;
+    ssb_offset = offset;
 }
 
