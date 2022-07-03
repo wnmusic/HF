@@ -58,7 +58,7 @@ private:
     double audio_rate;
     double input_rate;
     unsigned decimation;
-    unsigned block_size, block_size2, aud_block_size;
+    unsigned block_size, block_size2;
     double center_freq;
     double demod_bw;
     double ssb_offset;

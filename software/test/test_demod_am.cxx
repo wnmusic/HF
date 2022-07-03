@@ -25,15 +25,16 @@ int main(int argc, char* argv[])
             cf += off;
         }
         
-        rawfile_sink<float> sink("demod_out.data", 0.016);
-        complex_rawfile_source source(argv[1]);
+        rawfile_sink<float> sink("demod_out.data", 8000);
+        rawfile_source<std::complex<float>> source(argv[1], 500000);
         demod_am sig(mode
                     ,cf
                     ,bw
-                    ,off
+                    ,0.0
                     ,&source
                     ,&sink
                     );
+        sig.set_if_gain(100.0);
         sig.work();
     }
 

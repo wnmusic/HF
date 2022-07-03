@@ -21,6 +21,7 @@ sdl_audio_sink::~sdl_audio_sink()
 sdl_audio_sink::sdl_audio_sink()
 {
     proc_time = 0;
+    const char* aud_devname = SDL_GetAudioDeviceName(0, SDL_FALSE);
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s\n", SDL_GetError());
@@ -30,7 +31,11 @@ sdl_audio_sink::sdl_audio_sink()
     {
         int devcount = SDL_GetNumAudioDevices(SDL_FALSE);
         for (int i = 0; i < devcount; i++) {
-            printf("Output  device #%d: '%s'\n", i, SDL_GetAudioDeviceName(i, SDL_FALSE));
+            if (strstr(SDL_GetAudioDeviceName(i, SDL_FALSE), "Babyface")){
+                printf("Output  device #%d: '%s'\n", i, SDL_GetAudioDeviceName(i, SDL_FALSE));
+                aud_devname = SDL_GetAudioDeviceName(i, SDL_FALSE);
+                break;
+            }
         }
     }
 
@@ -45,7 +50,7 @@ sdl_audio_sink::sdl_audio_sink()
     SDL_AudioSpec obtainedSpec;
     SDL_zero(obtainedSpec);
 
-    const char* aud_devname = SDL_GetAudioDeviceName(0, 0);
+
     printf("Output  device: '%s'\n",aud_devname);
         
     devid_out = SDL_OpenAudioDevice(aud_devname, SDL_FALSE, &desiredSpec, &obtainedSpec, 0);

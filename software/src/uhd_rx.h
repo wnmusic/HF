@@ -48,11 +48,14 @@ public:
     }
     double get_rx_gain(void){return m_rx_gain;}
 
+    double get_normlized_rx_gain(void){
+        return usrp->get_normalized_rx_gain();
+    }
 
     uhd_rx(std::string &device
           ,std::string &subdev
           ,std::string &ref
-          ,unsigned pkt_size = 8192
+          ,unsigned buf_size = 8192*16
           ,double rate = 1e6
           ,double freq = 21.225e6
           ,double gain = 6
@@ -66,19 +69,16 @@ public:
     static  void stop(void* ctx){
         uhd_rx* obj = (uhd_rx*)ctx;
         obj->m_stop_rx = true;
+        
     }
-
-            
     virtual unsigned read(void* buf, int num_samples);
     virtual double get_sample_rate(void);
-    virtual unsigned get_block_size(void){return m_pkt_size;}
 
 private:
     double m_rx_freq;
     double m_rx_bw;
     double m_rate;
     double m_rx_gain;
-    unsigned m_pkt_size;
     unsigned m_samps_per_buff;
     
     uhd::usrp::multi_usrp::sptr usrp;

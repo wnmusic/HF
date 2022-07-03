@@ -21,7 +21,15 @@ namespace ImGui {
         void draw(float* fft_mag);
         void updateFreqSel(float sel_freq){
             freqSel = sel_freq;
+            if (m_freqhandler){
+                m_freqhandler(freqSel, m_freqhandler_context);
+            }
         }
+        void setSelFreqViewOffset(float view_loff, float view_roff){
+            m_selfreq_view_loff = view_loff;
+            m_selfreq_view_roff = view_roff;
+        }
+        
         void setFreqAndBandwidth(float cf, float bw);
         
         void registerFreqSelHandler(void (*handler)(double freq, void*), void*ctx){
@@ -50,7 +58,7 @@ namespace ImGui {
         
         uint32_t waterfallPallet[WATERFALL_RESOLUTION];
         float centerFreq, lowerFreq, upperFreq, viewBandwidth;
-
+        float m_selfreq_view_loff, m_selfreq_view_roff; 
         float fftMin;
         float fftMax;
         float waterfallMin;

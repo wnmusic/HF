@@ -73,7 +73,9 @@ namespace ImGui {
         freqSel = 0.0f;
         m_freqhandler = NULL;
         waterfallFb = new uint32_t[fft_size*waterfallHeight];
-
+        m_selfreq_view_loff = 0.0f;
+        m_selfreq_view_roff = 0.0f;
+        
         updatePallette(DEFAULT_COLOR_MAP, 13);
     }
 
@@ -152,9 +154,11 @@ namespace ImGui {
 
         if (freqSel >= lowerFreq && freqSel <=upperFreq)
         {
-            double xPos = fftAreaMin.x + ((freqSel - lowerFreq) * horizScale);
+            double xPos = fftAreaMin.x + ((freqSel + m_selfreq_view_loff - lowerFreq) * horizScale);
+            double xPos2 = fftAreaMin.x + ((freqSel + m_selfreq_view_roff - lowerFreq) * horizScale);            
+            
             ImVec2 pos0 = ImVec2(roundf(xPos), fftAreaMin.y + 1);
-            ImVec2 pos1 = ImVec2(roundf(xPos+5), fftAreaMax.y);
+            ImVec2 pos1 = ImVec2(roundf(xPos2), fftAreaMax.y);
             window->DrawList->AddRectFilled(pos0, pos1, IM_COL32(128, 128, 128, 32));
             window->DrawList->AddRect(pos0, pos1, IM_COL32(128, 128, 128, 128));
         };

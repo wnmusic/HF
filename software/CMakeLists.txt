@@ -23,10 +23,11 @@ endif()
 option(UHD_USE_STATIC_LIBS OFF)
 
 # To add UHD as a dependency to this project, add a line such as this:
-find_package(UHD 3.15.0 REQUIRED)
+
+find_package(UHD 4.2 EXACT REQUIRED PATHS /usr/local)
 find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(SDL2)
+find_package(portaudio)
 
 # This example also requires Boost.
 # Set components here, then include UHDBoost to do the actual finding
@@ -41,7 +42,6 @@ include(UHDBoost)
 # need these include and link directories for the build
 include_directories(
     ${Boost_INCLUDE_DIRS}
-    ${SDL2_INCLUDE_DIRECTORY}
     ${UHD_INCLUDE_DIRS}
     libdsp
     imgui
@@ -52,7 +52,7 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
 add_library(hf src/demod_am.cxx)
-add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/sdl_audio_impl.cxx src/waterfall.cxx)
+add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/pa_sink.cxx src/waterfall.cxx)
 
 add_subdirectory(libdsp)
 
@@ -60,7 +60,7 @@ if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE "Release")
 endif()
 target_link_libraries(hf Libdsp)
-target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL ${SDL2_LIBRARIES} hf)
+target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL portaudio hf)
 
 enable_testing()
 add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)

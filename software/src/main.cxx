@@ -22,7 +22,7 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <uhd/utils/safe_main.hpp>
 #include <uhd/utils/thread.hpp>
-#include "sdl_audio_impl.h"
+#include "pa_sink.h"
 #include "spectrum.h"
 #include "demod_am.h"
 #include "uhd_rx.h"
@@ -37,6 +37,25 @@ static void update_sel_freq(double freq, void*ctx)
 {
     float *p_freq = (float*)ctx;
     *p_freq = (float)freq;
+}
+
+static void get_view_offset(int mode, float bw, float* ploff, float *proff)
+{
+    float loff = 0.0f, roff = 0.0f;
+
+    if( mode == AM_DSB_MODE){
+        if (ploff) *ploff = -bw/2;
+        if (proff) *proff = bw/2;
+    }
+    else if (mode == AM_SSB_LSB_MODE){
+        if (ploff) *ploff = bw;
+        if (proff) *proff = 0;
+    }
+    else if (mode == AM_SSB_USB_MODE){
+        if (ploff) *ploff = 0.0f;
+        if (proff) *proff = bw;
+    }
+
 }
  
 int main(int, char**)
@@ -112,11 +131,11 @@ int main(int, char**)
     float curr_rf_gain = 20.0f;
 
     float curr_rf_freq = rf_band_center;
-    float curr_wf_freq = 0;
+    float curr_wf_freq = 0.0f;
     float curr_tune_freq = 21.300e6;
     float curr_tune_bandwidth = 3000;    
     int curr_demod_mode = AM_SSB_LSB_MODE;
-    
+    float wf_sel_loff, wf_sel_roff;
     unsigned fft_size = 1024;
     const int spec_hist_len = 256;
     float *fft_mag = new float[fft_size];    
@@ -141,7 +160,7 @@ int main(int, char**)
     uhd_rx *rx = new uhd_rx(device
                            ,subdev
                            ,ref
-                           ,fft_size
+                           ,int(floor(rf_sample_rate*0.1))
                            ,rf_sample_rate
                            ,rf_band_center
                            ,10.0f /* this is the gain for the hardware */
@@ -149,8 +168,8 @@ int main(int, char**)
                            );
     rf_sample_rate = rx->get_sample_rate();
     
-    sink_ifce *audio = new sdl_audio_sink();
-    const double norm_ssb_offset = 3000.0/rf_sample_rate * 2.0;
+    sink_ifce *audio = new pa_sink();
+    const double norm_ssb_offset = 1500.0/rf_sample_rate * 2.0;
     double norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
     double norm_bw = curr_tune_bandwidth/rf_sample_rate*2.0;
     
@@ -172,9 +191,12 @@ int main(int, char**)
     ImGui::WaterFall wf(fft_size, spec_hist_len);
     wf.init();
     wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+    wf.registerFreqSelHandler(update_sel_freq, &curr_wf_freq);    
     wf.updateFreqSel(curr_rf_freq);
-    wf.registerFreqSelHandler(update_sel_freq, &curr_wf_freq);
-    
+    get_view_offset(curr_demod_mode, curr_tune_bandwidth, &wf_sel_loff, &wf_sel_roff);
+    wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
+
+    bool show_demo_window = false;
     while (!glfwWindowShouldClose(window))
     {
         unsigned nb_data, rate;
@@ -185,6 +207,10 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+        
         if (if_buf.read(cplx_data, nb_data, rate))        
         {
             ImGui::Begin("Spectrum");
@@ -220,16 +246,20 @@ int main(int, char**)
             }
             
             ImGui::NewLine();
-            ImGui::InputFloat("Freq", &rf_freq, 10.0f, 1000.0f, "%.6e Hz");
+
             ImGui::SliderFloat("BandWidth", &bw, 2e3f, 10e3f, "%.3g");
             ImGui::RadioButton("DSB", &mode, AM_DSB_MODE); ImGui::SameLine();
             ImGui::RadioButton("USB", &mode, AM_SSB_USB_MODE); ImGui::SameLine();
             ImGui::RadioButton("LSB", &mode, AM_SSB_LSB_MODE);
-
+            ImGui::DragFloat("Freq", &rf_freq, 10.0f, curr_rf_freq-40e3, curr_rf_freq+40e3, "%.1f Hz");
             if (rf_freq != curr_wf_freq)
             {
                 wf.updateFreqSel(rf_freq);
-                curr_wf_freq = rf_freq;
+            }
+
+            if (curr_wf_freq != curr_rf_freq)
+            {
+                curr_rf_freq = curr_wf_freq;
             }
 
             if (bw != curr_tune_bandwidth){
@@ -248,9 +278,12 @@ int main(int, char**)
                               ,norm_bw
                               );
                 curr_demod_mode = mode;
+
+                get_view_offset(curr_demod_mode, curr_tune_bandwidth, &wf_sel_loff, &wf_sel_roff);
+                wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
             }
 
-            ImGui::SameLine();
+            ImGui::NewLine();
             if (ImGui::Button("Save")){
                 FILE *fp = fopen("uhd_hf.settings", "w");
                 fprintf(fp, "band_center: %.6le, sample_rate: %6le\n", rf_band_center, rf_sample_rate);                

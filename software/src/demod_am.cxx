@@ -15,11 +15,14 @@ demod_am::demod_am(int          mode
     
     input_rate     = m_source->get_sample_rate();
     audio_rate     = m_sink->get_sample_rate();
-    decimation     = (unsigned)ceil(input_rate/audio_rate);
-    block_size     = m_source->get_block_size();
-    block_size2    = block_size/decimation;
-    aud_block_size = (unsigned) ceil(block_size2 * (audio_rate/input_rate*decimation));
+    decimation     = (unsigned)floor(input_rate/audio_rate);
+
+    block_size2    = (unsigned)floor(audio_rate * 0.01);
+    block_size     = block_size2 * decimation;
     m_if_gain      = 1.0f;
+
+    std::cerr << "decimaton: " <<decimation << " rf rate: " << input_rate <<" aud ratte: " << audio_rate
+              << " conv rate: " << 1.0f * input_rate/decimation/audio_rate << std::endl;
 
     m_filter       = new fxlat_filter(decimation, taps_per_poly, center_freq, bw, block_size);
     m_resampler    = new resample(block_size2);
@@ -49,8 +52,8 @@ void demod_am::work(void)
     while(starting)
     {
         unsigned nin = m_source->read(p_scratch_buf[1], block_size);
-        
         if (nin < block_size){
+            std::cerr << "read size is less than block_size, semothing is wrong, exit";
             break;
         }
         if(p_if_buf){
@@ -96,10 +99,12 @@ void demod_am::work(void)
         //insert to audio buffer
         float *aud = (float*)p_scratch_buf[0];
         unsigned nout = m_resampler->process(mag, block_size2,
-                                            aud, aud_block_size
+                                            aud, block_size
                                             ,1.0f * input_rate/decimation/audio_rate);
 
-        m_sink->write(aud, nout);
+        if (!m_sink->write(aud, nout)){
+            std::cerr<<"x";
+        }
 
     }
 }
