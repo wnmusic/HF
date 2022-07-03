@@ -6,7 +6,6 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
-#include "imgui_plot.h"
 #include <thread>
 #include <math.h>
 #if defined(IMGUI_IMPL_OPENGL_ES2)
@@ -222,7 +221,6 @@ int main(int, char**)
 
         {
             float band_center_MHz = rf_band_center/1e6;
-            float rf_freq = curr_wf_freq;
             float gain = curr_rf_gain;
             float bw = curr_tune_bandwidth;
             float aud_vol;
@@ -251,11 +249,6 @@ int main(int, char**)
             ImGui::RadioButton("DSB", &mode, AM_DSB_MODE); ImGui::SameLine();
             ImGui::RadioButton("USB", &mode, AM_SSB_USB_MODE); ImGui::SameLine();
             ImGui::RadioButton("LSB", &mode, AM_SSB_LSB_MODE);
-            ImGui::DragFloat("Freq", &rf_freq, 10.0f, curr_rf_freq-40e3, curr_rf_freq+40e3, "%.1f Hz");
-            if (rf_freq != curr_wf_freq)
-            {
-                wf.updateFreqSel(rf_freq);
-            }
 
             if (curr_wf_freq != curr_rf_freq)
             {

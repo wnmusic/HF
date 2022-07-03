@@ -1,4 +1,5 @@
 #include "waterfall.h"
+#include <imgui.h>
 #include <iostream>
 
 float DEFAULT_COLOR_MAP[][3] = {
@@ -210,8 +211,11 @@ namespace ImGui {
     {
         window = GetCurrentWindow();
         const int w_padding = 70.0;
-        const int h_padding = 60.0;
-        
+        const int h_padding = 100.0;
+        const int dragHeight = 40;
+        int freqDrag = (int)freqSel;
+        int freqDragMin = (int)(freqSel - 0.5*range);
+        int freqDragMax = (int)(freqSel + 0.5*range);
         ImGuiContext& g = *GImGui;
         const ImGuiStyle& style = g.Style;
         const ImRect frame_bb(
@@ -236,7 +240,7 @@ namespace ImGui {
         freqAreaMin = ImVec2(fftAreaMin.x, fftAreaMax.y + 1);
         freqAreaMax = ImVec2(fftAreaMax.x, fftAreaMax.y + (40.0f * 1.0f));
 
-        wfMin = ImVec2(fftAreaMin.x, freqAreaMax.y + 1);
+        wfMin = ImVec2(fftAreaMin.x, freqAreaMax.y + dragHeight + 1);
         wfMax = ImVec2(fftAreaMin.x + dataWidth, wfMin.y + waterfallHeight);
 
 
@@ -247,19 +251,40 @@ namespace ImGui {
         vRange = findBestRange(fftMax - fftMin, maxVSteps);
 
         drawFFT(fft_mag);
-        drawWaterfall(fft_mag);
-
-        // handle mouse click
-        ImRect inner_bb(fftAreaMin, wfMax);
-        if (g.IO.MouseClicked[0] && 
-           inner_bb.Contains(g.IO.MousePos)){
-            const int v_idx = cursor_to_idx(g.IO.MousePos, inner_bb, dataWidth);
-            freqSel = lowerFreq + 1.0f*v_idx/dataWidth*viewBandwidth;
-
+        window->DC.CursorPos = ImVec2(freqAreaMin.x + 20, freqAreaMax.y+1);
+        ImGui::DragInt("Tune", &freqDrag, 10, freqDragMin, freqDragMax, "%d Hz");
+        if( freqDrag*1.0 != freqSel){
+            freqSel = 1.0*freqDrag;
             if (m_freqhandler){
                 m_freqhandler(freqSel, m_freqhandler_context);
             }
         }
-    }
+        drawWaterfall(fft_mag);
+        {
+            bool mouseHovered, mouseHeld;
+            ImVec2 mousePos = ImGui::GetMousePos();
+            bool mouseClicked = ImGui::ButtonBehavior(ImRect(fftAreaMin, wfMax),
+                                                     GetID("WaterfallID"),
+                                                     &mouseHovered, &mouseHeld,
+                                                     ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_PressedOnClick);
 
+            
+            // handle mouse click
+            ImRect fftArea(fftAreaMin, fftAreaMax);
+            ImRect freqArea(freqAreaMin, freqAreaMax);
+            
+            if (mouseClicked && 
+               fftArea.Contains(mousePos)){
+                const int v_idx = cursor_to_idx(g.IO.MousePos, fftArea, dataWidth);
+                freqSel = lowerFreq + 1.0f*v_idx/dataWidth*viewBandwidth;
+                if (m_freqhandler){
+                    m_freqhandler(freqSel, m_freqhandler_context);
+                }
+                if (m_freqhandler){
+                    m_freqhandler(freqSel, m_freqhandler_context);
+                }
+            }
+
+        }
+    }
 }
