@@ -1,13 +1,14 @@
 add_executable(test_blkconv test_blkconv.cxx)
 target_link_libraries(test_blkconv LINK_PUBLIC Libdsp)
-message(DEBUG,   "${CMAKE_MODULE_PATH}")
+cmake_policy(SET CMP0078 NEW)
+cmake_policy(SET CMP0086 NEW)
 
 find_package(SWIG REQUIRED)
 find_package(Python3 COMPONENTS Interpreter Development Numpy)
 
 INCLUDE(${SWIG_USE_FILE})
 
-set (UseSWIG_TARGET_NAME_PREFERENCE STANDARD)
+
 
 set_property(SOURCE pydsp.i PROPERTY CPLUSPLUS ON)
 SWIG_ADD_LIBRARY(pydsp LANGUAGE python SOURCES pydsp.i)

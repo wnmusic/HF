@@ -4,7 +4,7 @@ import matplotlib.pyplot as plot
 import sys
 import os
 
-sys.path.append('../build/test')
+sys.path.append('../../build/libdsp/test')
 from pydsp import *
 
 N = 1024
@@ -20,12 +20,12 @@ print(os.getpid())
 input()
 
 y = []
-for b in range(N/B):
+for b in range(N//B):
     Ny,y0 = interp.process(x0[b*B:(b+1)*B],4*B, 0.77)
     y += y0[0:Ny].tolist()
                         
 
-#plot.plot(np.abs(np.fft.fft(x0)))
-#plot.plot(np.abs(np.fft.fft(y)))
-#plot.show()
+plot.plot(np.abs(np.fft.fft(x0)))
+plot.plot(np.abs(np.fft.fft(y)))
+plot.show()
 

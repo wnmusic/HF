@@ -170,7 +170,7 @@ int main(int, char**)
     sink_ifce *audio = new pa_sink();
     const double norm_ssb_offset = 1500.0/rf_sample_rate * 2.0;
     double norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
-    double norm_bw = curr_tune_bandwidth/rf_sample_rate*2.0;
+    double norm_bw = (curr_tune_bandwidth/2)/rf_sample_rate*2.0;
     
     demod_am sig_chain(curr_demod_mode
                       ,norm_cf
@@ -264,7 +264,7 @@ int main(int, char**)
                || mode != curr_demod_mode)
             {
                 norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
-                norm_bw = curr_tune_bandwidth/rf_sample_rate*2.0;
+                norm_bw = (curr_tune_bandwidth/2)/rf_sample_rate*2.0;
                 sig_chain.tune(mode
                               ,norm_cf
                               ,norm_ssb_offset

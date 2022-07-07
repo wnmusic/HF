@@ -18,7 +18,7 @@ endif()
 
 SET(CMAKE_CXX_FLAGS  "-fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mavx")
-add_library(Libdsp blkconv.cxx resample.cxx decimate.cxx polyphase.cxx fxlat_filter.cxx)
+add_library(Libdsp blkconv.cxx resample.cxx decimate.cxx polyphase.cxx fxlat_filter.cxx upsamp_fxlat_filter.cxx hilbert_xfrm.cxx)
 
 target_include_directories(Libdsp  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(Libdsp  PUBLIC ${FFTW_INCLUDE_DIR})

@@ -35,7 +35,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 class blkconv
 {
 public: 
-    blkconv(float *taps, int n_taps, int fft_len);
+    blkconv(const float *taps, int n_taps, int fft_len);
     ~blkconv();
     int get_blksize()
     {
@@ -46,6 +46,7 @@ public:
         return (float*)m_data_buf;
     }
     void process();
+    int process_f2f(float *in, int n_in, float *out, int out_len);
 private:
 
     fftwf_plan      m_plan;

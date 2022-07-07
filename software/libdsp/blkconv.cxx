@@ -30,8 +30,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "blkconv.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdexcept>
+#include <complex>
 
-blkconv::blkconv(float *taps, int n_taps, int fft_len)
+blkconv::blkconv(const float *taps, int n_taps, int fft_len)
 {
     int n_ffto = fft_len/2 + 1;
     int i;
@@ -45,8 +47,8 @@ blkconv::blkconv(float *taps, int n_taps, int fft_len)
 
     m_fft_len = fft_len;
     m_blk_size = fft_len + 1 - n_taps;
-    m_overlap_size = n_taps - 1;
 
+    m_overlap_size = n_taps - 1;
     m_scaling = 1.0f/m_fft_len;
 
     m_overlap = (float*)malloc(m_overlap_size * sizeof(float));
@@ -77,9 +79,10 @@ blkconv::blkconv(float *taps, int n_taps, int fft_len)
 void blkconv::process()
 {
 
-    int i;
+    int i,j;
     float *in = (float*)m_data_buf;
-    fftwf_complex *out = (fftwf_complex*)m_data_buf;
+    std::complex<float> *out = (std::complex<float> *)m_data_buf;
+    std::complex<float> *taps = (std::complex<float> *)m_fft_taps;
 
     //zero padding to fft_len    
     for(i=m_blk_size; i<m_fft_len; i++){
@@ -91,24 +94,38 @@ void blkconv::process()
     // multiplication
     for (i=0; i<(m_fft_len/2 + 1); i++)
     {
-        float re = out[i][0];
-        float im = out[i][1];
-        float cr = m_fft_taps[i][0];
-        float ci = m_fft_taps[i][1];
-
-        out[i][0] = m_scaling *(re * cr - im * ci);
-        out[i][1] = m_scaling *(re * ci + im * cr);
+        out[i] = m_scaling * (out[i] * taps[i]);
     }
-
     fftwf_execute(m_inv_plan);
-    //overlap add
-    for (i=0; i<m_overlap_size; i++)
-    {
-        in[i]        = in[i] + m_overlap[i];
-        m_overlap[i] = in[m_blk_size + i];
+    
+    //overlap add for output 
+    for (i=0; i<m_blk_size; i++){
+        in[i] = in[i] + m_overlap[i];
     }
+    // for overlap
+    for (j=0; i<m_overlap_size; i++,j++){
+        
+        m_overlap[j] = in[i] + m_overlap[i];
+    }
+    for (; i<m_fft_len; i++,j++){
+        m_overlap[j] = in[i];
+    }
+    
 }
 
+
+int blkconv::process_f2f(float* in, int n_in, float* out, int out_len)
+{
+    if (n_in != m_blk_size){
+        throw std::runtime_error("n_in should be blocksize");
+    }
+    
+    memcpy(m_data_buf, in, sizeof(float)*n_in);
+    process();
+    memcpy(out, m_data_buf, sizeof(float)*n_in);
+
+    return n_in;
+}
 
 blkconv::~blkconv()
 {

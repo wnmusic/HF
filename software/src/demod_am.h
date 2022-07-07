@@ -5,10 +5,7 @@
 #include "resample.h"
 #include "fxlat_filter.h"
 #include "debug_buf.h"
-/* demodulate AM signal, input is a complex baseband, output with audio */
-#define AM_DSB_MODE       (0)
-#define AM_SSB_USB_MODE   (1)
-#define AM_SSB_LSB_MODE   (2)
+#include "common_defs.h"
 
 class demod_am
 {

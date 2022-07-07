@@ -42,11 +42,9 @@ public:
     fxlat_filter(const float *taps, int n_taps, int decimate, int blksize, float center = 0.0f);
     fxlat_filter(int dec, int n_taps_per_poly, float center, float bandwidth, int blksize);    
     ~fxlat_filter();
-    
     void set_center(float center, float offset=0.0f);
     void set_bandwidth(float bw);
     /* return the output len which is blksize/dec  */
-    int process_r2c(float* in, int n_in, std::complex<float>* out, int out_len);
     int process_c2c(std::complex<float>* in, int n_in, std::complex<float>* out, int out_len);
     
  private:
@@ -63,11 +61,8 @@ public:
     lv_32fc_t       m_phase;
     lv_32fc_t       m_phase_inc;
     float           m_bandwidth;
+    size_t          alignment;
 
-
-    void fill_hamming_lpf(float bandwidth);
-
-    
 };
 
 
