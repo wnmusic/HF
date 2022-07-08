@@ -22,9 +22,10 @@
 #include <uhd/utils/safe_main.hpp>
 #include <uhd/utils/thread.hpp>
 #include "pa_sink.h"
+#include "pa_source.h"
 #include "spectrum.h"
 #include "demod_am.h"
-#include "uhd_rx.h"
+#include "uhd_fe.h"
 #include "waterfall.h"
 #include "volume_meter.h"
 static void glfw_error_callback(int error, const char* description)
@@ -43,7 +44,7 @@ static void get_view_offset(int mode, float bw, float* ploff, float *proff)
     float loff = 0.0f, roff = 0.0f;
 
     if( mode == AM_DSB_MODE){
-        if (ploff) *ploff = -bw/2;
+        if (ploff) *ploff = bw/2;
         if (proff) *proff = bw/2;
     }
     else if (mode == AM_SSB_LSB_MODE){
@@ -134,6 +135,10 @@ int main(int, char**)
     float curr_tune_freq = 21.300e6;
     float curr_tune_bandwidth = 3000;    
     int curr_demod_mode = AM_SSB_LSB_MODE;
+    int curr_audout_dev = -1;
+    int curr_audin_dev = -1;
+    
+    
     float wf_sel_loff, wf_sel_roff;
     unsigned fft_size = 1024;
     const int spec_hist_len = 256;
@@ -144,30 +149,65 @@ int main(int, char**)
     
     spectrum spec(fft_size, true);
     FILE *fp = fopen("uhd_hf.settings", "rb");
+    char audin_name[256] = {0};
+    char audout_name[256] = {0};
     if (fp){
         unsigned ret;
         ret = fscanf(fp, "band_center: %le, sample_rate: %le\n", &rf_band_center, &rf_sample_rate);
         ret = fscanf(fp, "rf: %e, bw: %e, mode: %d\n", &curr_rf_freq, &curr_tune_bandwidth, &curr_demod_mode);
         ret = fscanf(fp, "if gain: %f\n", &curr_rf_gain);
+        ret = fscanf(fp, "audio input: %s\n", audin_name);
+        ret = fscanf(fp, "audio output: %s\n", audout_name);
         fclose(fp);
     }
+
+
+    pa_sink   audio_out(NULL);
+    pa_source audio_in(NULL);
+    std::vector<const char*> aud_in_devices = audio_in.get_device_names();
+    std::vector<const char*> aud_out_devices = audio_out.get_device_names();
     
+    for (int i=0; i<aud_in_devices.size(); i++){
+        if (aud_in_devices[i] == audin_name){
+            curr_audin_dev = i;
+            break;
+        }
+    }
+    if (curr_audin_dev >= 0 && curr_audin_dev != audio_in.dev()){
+        audio_in.change_dev(audin_name);
+    }else{
+        curr_audin_dev = audio_in.dev();
+    }
+
+    for (int i=0; i<aud_out_devices.size(); i++){
+        if (aud_out_devices[i] == audout_name){
+            curr_audout_dev = i;
+            break;
+        }
+    }
+    if (curr_audout_dev >=0 && curr_audout_dev != audio_out.dev()){
+        audio_out.change_dev(audout_name);
+    }
+    else{
+        curr_audout_dev = audio_out.dev();
+    }
+
     std::string device("addr=192.168.1.21");
     std::string subdev("A:A");
     std::string ref("internal");
 
-    uhd_rx *rx = new uhd_rx(device
+    uhd_fe *rx = new uhd_fe(device
                            ,subdev
                            ,ref
                            ,int(floor(rf_sample_rate*0.1))
                            ,rf_sample_rate
                            ,rf_band_center
                            ,10.0f /* this is the gain for the hardware */
+                           ,10.0f
                            ,rf_sample_rate
                            );
     rf_sample_rate = rx->get_sample_rate();
     
-    sink_ifce *audio = new pa_sink();
     const double norm_ssb_offset = 1500.0/rf_sample_rate * 2.0;
     double norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
     double norm_bw = (curr_tune_bandwidth/2)/rf_sample_rate*2.0;
@@ -177,14 +217,14 @@ int main(int, char**)
                       ,norm_bw
                       ,norm_ssb_offset
                       ,rx
-                      ,audio);
+                      ,&audio_out);
 
     sig_chain.set_fft_buf(&if_buf);
     sig_chain.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
     
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // Main loop
-    std::thread rx_thread(uhd_rx::start, rx);
+    std::thread rx_thread(uhd_fe::start, rx);
     std::thread proc_thread(demod_am::start, &sig_chain);
 
     ImGui::WaterFall wf(fft_size, spec_hist_len);
@@ -276,6 +316,27 @@ int main(int, char**)
                 wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
             }
 
+            {
+                struct Funcs { static bool ItemGetter(void* data, int n, const char** out_str) {
+                    *out_str = ((std::vector<const char*>*)data)->at(n); return true;
+                }
+                };
+
+                int item = curr_audout_dev;
+                ImGui::Combo("Audio Out Dev", &item, &Funcs::ItemGetter, &aud_out_devices, aud_out_devices.size());
+                if (item != curr_audout_dev){
+                    audio_out.change_dev(aud_out_devices[item]);
+                    curr_audout_dev = audio_out.dev();
+                }
+                
+                ImGui::NewLine();
+                item = curr_audin_dev;
+                ImGui::Combo("Audio In Dev", &item, &Funcs::ItemGetter, &aud_in_devices, aud_in_devices.size());
+                if(item !=curr_audin_dev){
+                    audio_in.change_dev(aud_in_devices[item]);
+                    curr_audin_dev = audio_in.dev();
+                }
+            }
             ImGui::NewLine();
             if (ImGui::Button("Save")){
                 FILE *fp = fopen("uhd_hf.settings", "w");
@@ -299,7 +360,7 @@ int main(int, char**)
         glfwSwapBuffers(window);
     }
     
-    uhd_rx::stop(rx);    
+    uhd_fe::stop(rx);    
     sig_chain.stop();
 
     rx_thread.join();
@@ -315,7 +376,6 @@ int main(int, char**)
     delete[] fft_mag;
     delete[] cplx_data;
     delete rx;
-    delete audio;
     return 0;
 }
 

@@ -83,7 +83,8 @@ def test_up_filter(N, B, L):
     for (i, x) in enumerate(x0):
         x1[L*i] = x
     ntaps = L*13
-    taps = np.hamming(ntaps) * fc*np.sinc(fc*(np.arange(ntaps)-(ntaps-1)/2))
+    #taps = np.hamming(ntaps) * fc*np.sinc(fc*(np.arange(ntaps)-(ntaps-1)/2))
+    taps = np.hamming(ntaps) * fc * np.sinc(fc*(np.arange(ntaps)-(ntaps-1)/2))
     y_ref = signal.lfilter(taps, [1], x1);
     y_ref = y_ref * np.exp(1j*np.pi*center*np.arange(len(y_ref)))
     freq = np.linspace(-1.0, 1.0, num=1024)
@@ -92,7 +93,7 @@ def test_up_filter(N, B, L):
     #plot.plot(freq, np.abs(np.fft.fftshift(np.fft.fft(y))))
     #plot.plot(np.real(y))
     #plot.plot(np.real(y_ref))
-    #plot.show()
+    plot.show()
     assert np.mean(np.abs(y - y_ref)) < 1e-5, "error is too big"
     
     
@@ -100,5 +101,5 @@ if __name__ == "__main__":
 
     print(os.getpid())
     input()
-    #test_up_filter(256, 32, 4)
-    test_filter0(2048, 32, 8)
+    test_up_filter(256, 32, 4)
+    #test_filter0(2048, 32, 8)

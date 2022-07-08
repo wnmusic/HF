@@ -51,8 +51,8 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_library(hf src/demod_am.cxx)
-add_executable(uhd_hf src/uhd_rx.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/pa_sink.cxx src/waterfall.cxx src/ssb_modulator.cxx)
+add_library(hf src/demod_am.cxx src/ssb_modulator.cxx)
+add_executable(uhd_hf src/uhd_fe.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/pa_sink.cxx src/waterfall.cxx src/pa_source.cxx)
 
 add_subdirectory(libdsp)
 
@@ -66,4 +66,8 @@ enable_testing()
 add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)
 target_link_libraries(test_demod_am Libdsp)
 
+add_executable(test_modulator test/test_ssb_modulator.cxx $<TARGET_OBJECTS:hf>)
+target_link_libraries(test_modulator Libdsp)
+
 add_test(NAME test_demod_am COMMAND test_demod_am ${CMAKE_CURRENT_SOURCE_DIR}/test/FM_21.1M_sr500k_cf21.25M.data)
+add_test(NAME test_modulator COMMAND test_modulator ${CMAKE_CURRENT_SOURCE_DIR}/test/Audio_400Hz_tone.data)

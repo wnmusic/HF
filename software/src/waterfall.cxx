@@ -68,7 +68,7 @@ namespace ImGui {
         fftMax = 0.0;
         waterfallMin = -70.0;
         waterfallMax = 0.0;
-        fftHeight = 300;
+        fftHeight = 250;
         waterfallHeight = waterfall_height;
         dataWidth = fft_size;
         freqSel = 0.0f;
@@ -155,7 +155,7 @@ namespace ImGui {
 
         if (freqSel >= lowerFreq && freqSel <=upperFreq)
         {
-            double xPos = fftAreaMin.x + ((freqSel + m_selfreq_view_loff - lowerFreq) * horizScale);
+            double xPos = fftAreaMin.x + ((freqSel - m_selfreq_view_loff - lowerFreq) * horizScale);
             double xPos2 = fftAreaMin.x + ((freqSel + m_selfreq_view_roff - lowerFreq) * horizScale);            
             
             ImVec2 pos0 = ImVec2(roundf(xPos), fftAreaMin.y + 1);
@@ -165,7 +165,7 @@ namespace ImGui {
         };
             
         // Data
-        if (latestFFT != NULL && fftLines != 0) {
+        if (latestFFT != NULL) {
             for (int i = 1; i < dataWidth; i++) {
                 double aPos = fftAreaMax.y - ((latestFFT[i - 1] - fftMin) * scaleFactor);
                 double bPos = fftAreaMax.y - ((latestFFT[i] - fftMin) * scaleFactor);

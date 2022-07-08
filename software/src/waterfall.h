@@ -72,7 +72,6 @@ namespace ImGui {
         int waterfallHeight;
         int dataWidth;
         uint32_t* waterfallFb;
-        int fftLines;
 
         void (*m_freqhandler)(double freq, void*);
         void *m_freqhandler_context;

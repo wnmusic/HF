@@ -1,17 +1,15 @@
-#include "uhd_rx.h"
-#include <boost/program_options.hpp>
-#include <boost/format.hpp>
-//#include <boost/thread.hpp>
+#include "uhd_fe.h"
 #include <boost/thread/thread.hpp>
 #include <iostream>
 
-uhd_rx::uhd_rx(std::string &device
+uhd_fe::uhd_fe(std::string &device
               ,std::string &subdev
               ,std::string &ref
               ,unsigned buf_size
               ,double rate
               ,double freq
-              ,double gain
+              ,double rx_gain
+              ,double tx_gain
               ,double bw
               ):
     stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS),
@@ -24,6 +22,7 @@ uhd_rx::uhd_rx(std::string &device
     usrp->set_clock_source(ref);
     
     usrp->set_rx_subdev_spec(subdev);
+    usrp->set_tx_subdev_spec(subdev);
 
     //set the sample rate
     if (rate <= 0.0) {
@@ -31,12 +30,13 @@ uhd_rx::uhd_rx(std::string &device
     }
     set_sample_rate(rate);
     set_rf_freq(freq);
-    set_rx_gain(gain);
+    set_rx_gain(rx_gain);
     set_if_bandwidth(bw);
-
+    set_tx_gain(tx_gain);
+    
     m_rx_stream = usrp->get_rx_stream(stream_args);
-    // allocate buffers to receive with samples (one buffer per channel)
-    //m_samps_per_buff = m_rx_stream->get_max_num_samps();
+    m_tx_stream = usrp->get_tx_stream(stream_args);
+
     m_samps_per_buff = (int)floor(rate * 0.02);
     m_dev_buf = new std::complex<float> [m_samps_per_buff];
     std::cout <<"num samples per transfer: " << m_samps_per_buff << std::endl;
@@ -46,27 +46,33 @@ uhd_rx::uhd_rx(std::string &device
     m_stop_rx = true;
 }
 
-uhd_rx::~uhd_rx()
+uhd_fe::~uhd_fe()
 {
     delete[] m_dev_buf;
     delete m_ringbuf;
 }
 
 void
-uhd_rx::start(void* ctx)
+uhd_fe::start(void* ctx)
 {
-    uhd_rx *rx = static_cast<uhd_rx*>(ctx);
+    uhd_fe *rx = static_cast<uhd_fe*>(ctx);
     rx->work();
 }
 
 
 void
-uhd_rx::work()
+uhd_fe::work()
 {
     static const double rx_timeout = 0.1;
     stream_cmd.stream_mode = uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS;
     stream_cmd.stream_now = false;
     stream_cmd.time_spec = usrp->get_time_now() + uhd::time_spec_t(0.5);
+
+    tx_md.start_of_burst = true;
+    tx_md.has_time_spec  = false;
+    tx_md.end_of_burst   = false;
+
+    
     m_rx_stream->issue_stream_cmd(stream_cmd); // tells all channels to stream
     m_stop_rx = false;
     while(!m_stop_rx)
@@ -96,7 +102,7 @@ uhd_rx::work()
 }
 
 
-unsigned uhd_rx::read(void *ptr, int num_samples)
+unsigned uhd_fe::read(void *ptr, int num_samples)
 {
 
     std::complex<float> *buf = (std::complex<float>*)ptr;
@@ -112,7 +118,15 @@ unsigned uhd_rx::read(void *ptr, int num_samples)
     return m_stop_rx ? 0 : num_samples;
 }
 
-double uhd_rx::get_sample_rate(void)
+unsigned uhd_fe::write(void *ptr, int num_samples)
+{
+    return m_tx_stream->send(ptr, num_samples, tx_md);
+    tx_md.start_of_burst = false;
+    tx_md.end_of_burst   = false;
+    
+}
+
+double uhd_fe::get_sample_rate(void)
 {
     return m_rate;
 }

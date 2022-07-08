@@ -25,6 +25,7 @@ def test_fir_gen(window_type, M):
     h = fc*np.sinc(fc*(np.arange(ntaps)-(M-1)/2)) * w
     
     assert np.max(h - taps) < 1e-6, 'max error mag is: {}'.format(np.max(h - taps))
+    return taps;
 
 @pytest.mark.parametrize(
     "window_type, M",
@@ -46,13 +47,14 @@ def test_hilbert_xfm(window_type, M):
 
 if __name__ == '__main__':
     import scipy.signal as signal
-    M=65
-    taps = test_hilbert_xfm(1, M);
-    
-    n = np.arange(1024)
+    M=802
+    #taps = test_hilbert_xfm(1, M);
+    n = np.arange(2048)
+    taps = test_fir_gen(0, M);
     x = np.sin(0.025*np.pi*n);
     x1 = np.convolve(taps, x);
-    y = x + 1j*x1[(M-1)//2:(M-1)//2+1024]
-    plot.plot(np.abs(np.fft.fft(y)))
+    plot.plot(20*np.log10(np.abs(np.fft.fft(taps))))
+    plot.show()
+    plot.plot(x1)
     plot.show()
     
