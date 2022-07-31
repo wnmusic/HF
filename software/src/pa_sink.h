@@ -9,7 +9,7 @@
 class pa_sink : public sink_ifce
 {
 public:
-    virtual double get_sample_rate(){ return 1.0*sample_rate;}
+    virtual double get_sink_rate(){ return 1.0*sample_rate;}
     virtual unsigned write(void* buf, int num_samples);
     
     ~pa_sink();

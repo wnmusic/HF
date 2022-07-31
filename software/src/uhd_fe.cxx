@@ -6,11 +6,13 @@ uhd_fe::uhd_fe(std::string &device
               ,std::string &subdev
               ,std::string &ref
               ,unsigned buf_size
-              ,double rate
               ,double freq
+              ,double rx_rate
+              ,double tx_rate
               ,double rx_gain
               ,double tx_gain
-              ,double bw
+              ,double rx_bw
+              ,double tx_bw
               ):
     stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS),
     tune_request(freq),
@@ -25,19 +27,22 @@ uhd_fe::uhd_fe(std::string &device
     usrp->set_tx_subdev_spec(subdev);
 
     //set the sample rate
-    if (rate <= 0.0) {
+    if (rx_rate <= 0.0 || tx_rate <= 0.0) {
         std::cerr << "Please specify a valid sample rate" << std::endl;
     }
-    set_sample_rate(rate);
+    
+    set_rx_sample_rate(rx_rate);
+    set_tx_sample_rate(tx_rate);
     set_rf_freq(freq);
     set_rx_gain(rx_gain);
-    set_if_bandwidth(bw);
-    set_tx_gain(tx_gain);
+    set_tx_gain(tx_gain);    
+    set_rx_bandwidth(rx_bw);
+    set_tx_bandwidth(tx_bw);
     
     m_rx_stream = usrp->get_rx_stream(stream_args);
     m_tx_stream = usrp->get_tx_stream(stream_args);
 
-    m_samps_per_buff = (int)floor(rate * 0.02);
+    m_samps_per_buff = (int)floor(m_rx_rate * 0.02);
     m_dev_buf = new std::complex<float> [m_samps_per_buff];
     std::cout <<"num samples per transfer: " << m_samps_per_buff << std::endl;
     buff_ptrs.push_back(m_dev_buf);
@@ -126,7 +131,4 @@ unsigned uhd_fe::write(void *ptr, int num_samples)
     
 }
 
-double uhd_fe::get_sample_rate(void)
-{
-    return m_rate;
-}
+

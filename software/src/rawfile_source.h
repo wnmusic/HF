@@ -20,7 +20,7 @@ public:
         }
     }
 
-    virtual double get_sample_rate(void) {return m_rate;}
+    virtual double get_source_rate(void) {return m_rate;}
     virtual unsigned read(void* buf, int num_samples){
         return fread(buf, sizeof(T), num_samples, m_file);
     }

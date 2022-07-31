@@ -13,8 +13,8 @@ demod_am::demod_am(int          mode
 {
     static const int taps_per_poly = 13;
     
-    input_rate     = m_source->get_sample_rate();
-    audio_rate     = m_sink->get_sample_rate();
+    input_rate     = m_source->get_source_rate();
+    audio_rate     = m_sink->get_sink_rate();
     decimation     = (unsigned)floor(input_rate/audio_rate);
 
     block_size2    = (unsigned)floor(audio_rate * 0.01);

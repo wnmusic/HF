@@ -10,6 +10,9 @@ project(uhd_hf CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(OpenGL_GL_PREFERENCE "GLVND")
 
+set ( CMAKE_MODULE_PATH
+  ${PROJECT_SOURCE_DIR}/cmake
+)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS "-lthr ${CMAKE_EXE_LINKER_FLAGS}")
@@ -43,6 +46,7 @@ include(UHDBoost)
 include_directories(
     ${Boost_INCLUDE_DIRS}
     ${UHD_INCLUDE_DIRS}
+    ${PORTAUDIO_INCLUDE_DIRS}
     libdsp
     imgui
     imgui/backends
@@ -60,7 +64,7 @@ if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE "Release")
 endif()
 target_link_libraries(hf Libdsp)
-target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL portaudio hf)
+target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL ${PORTAUDIO_LIBRARIES} hf)
 
 enable_testing()
 add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)

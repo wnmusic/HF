@@ -25,6 +25,7 @@
 #include "pa_source.h"
 #include "spectrum.h"
 #include "demod_am.h"
+#include "ssb_modulator.h"
 #include "uhd_fe.h"
 #include "waterfall.h"
 #include "volume_meter.h"
@@ -126,10 +127,11 @@ int main(int, char**)
     //IM_ASSERT(font != NULL);
 
     // Our state
-    double rf_sample_rate = 500000; //500KHz
+    double rx_sample_rate = 500000; //500KHz
+    double tx_sample_rate = 1000000; //600KHz
+    double rf_bandwidth   = 500000;
     double rf_band_center = 21.25e6;
     float curr_rf_gain = 20.0f;
-
     float curr_rf_freq = rf_band_center;
     float curr_wf_freq = 0.0f;
     float curr_tune_freq = 21.300e6;
@@ -137,7 +139,8 @@ int main(int, char**)
     int curr_demod_mode = AM_SSB_LSB_MODE;
     int curr_audout_dev = -1;
     int curr_audin_dev = -1;
-    
+    float curr_tx_gain = 20.0f;
+    bool test_tone_enable = false;
     
     float wf_sel_loff, wf_sel_roff;
     unsigned fft_size = 1024;
@@ -153,9 +156,9 @@ int main(int, char**)
     char audout_name[256] = {0};
     if (fp){
         unsigned ret;
-        ret = fscanf(fp, "band_center: %le, sample_rate: %le\n", &rf_band_center, &rf_sample_rate);
+        ret = fscanf(fp, "band_center: %le, sample_rate: %le\n", &rf_band_center, &rx_sample_rate);
         ret = fscanf(fp, "rf: %e, bw: %e, mode: %d\n", &curr_rf_freq, &curr_tune_bandwidth, &curr_demod_mode);
-        ret = fscanf(fp, "if gain: %f\n", &curr_rf_gain);
+        ret = fscanf(fp, "if gain: %f, tx gain: %f \n", &curr_rf_gain, &curr_tx_gain);
         ret = fscanf(fp, "audio input: %s\n", audin_name);
         ret = fscanf(fp, "audio output: %s\n", audout_name);
         fclose(fp);
@@ -196,45 +199,65 @@ int main(int, char**)
     std::string subdev("A:A");
     std::string ref("internal");
 
-    uhd_fe *rx = new uhd_fe(device
-                           ,subdev
-                           ,ref
-                           ,int(floor(rf_sample_rate*0.1))
-                           ,rf_sample_rate
-                           ,rf_band_center
-                           ,10.0f /* this is the gain for the hardware */
-                           ,10.0f
-                           ,rf_sample_rate
-                           );
-    rf_sample_rate = rx->get_sample_rate();
+    uhd_fe *uhd = new uhd_fe(device
+                            ,subdev
+                            ,ref
+                            ,int(floor(rx_sample_rate*0.1))
+                            ,rf_band_center
+                            ,rx_sample_rate
+                            ,tx_sample_rate
+                            ,10.0f /* this is the gain for the hardware */
+                            ,0.0f /* 0 dB , the max */
+                            ,rf_bandwidth
+                            ,rf_bandwidth
+                            );
+    rx_sample_rate = uhd->get_source_rate();
+    tx_sample_rate = uhd->get_sink_rate();
     
-    const double norm_ssb_offset = 1500.0/rf_sample_rate * 2.0;
-    double norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
-    double norm_bw = (curr_tune_bandwidth/2)/rf_sample_rate*2.0;
-    
-    demod_am sig_chain(curr_demod_mode
-                      ,norm_cf
-                      ,norm_bw
-                      ,norm_ssb_offset
-                      ,rx
-                      ,&audio_out);
+    const double norm_rx_ssb_offset = 1500.0/rx_sample_rate * 2.0;
+    double norm_rx_cf = (curr_rf_freq - rf_band_center)/rx_sample_rate*2.0;
+    double norm_rx_bw = (curr_tune_bandwidth/2)/rx_sample_rate*2.0;
+    demod_am demod(curr_demod_mode
+                  ,norm_rx_cf
+                  ,norm_rx_bw
+                  ,norm_rx_ssb_offset
+                  ,uhd
+                  ,&audio_out);
+    demod.set_fft_buf(&if_buf);
+    demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
 
-    sig_chain.set_fft_buf(&if_buf);
-    sig_chain.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
+    const double norm_tx_ssb_offset = 1500.0/tx_sample_rate * 2.0;
+    double norm_tx_cf = (curr_rf_freq - rf_band_center)/tx_sample_rate*2.0;
+    double norm_tx_bw = (curr_tune_bandwidth/2)/tx_sample_rate*2.0;
+    
+    ssb_modulator mod(curr_demod_mode
+                     ,norm_tx_cf
+                     ,norm_tx_bw
+                     ,norm_tx_ssb_offset
+                     ,&audio_in
+                     ,uhd
+                     );
+    mod.set_if_gain(powf(10.0f, curr_tx_gain/20.0f));
     
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // Main loop
-    std::thread rx_thread(uhd_fe::start, rx);
-    std::thread proc_thread(demod_am::start, &sig_chain);
+    std::thread uhd_thread(uhd_fe::start, uhd);
+    std::thread rx_thread(demod_am::start, &demod);
+    std::thread tx_thread(ssb_modulator::start, &mod);    
 
     ImGui::WaterFall wf(fft_size, spec_hist_len);
     wf.init();
-    wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+    wf.setFreqAndBandwidth(rf_band_center, rx_sample_rate);
     wf.registerFreqSelHandler(update_sel_freq, &curr_wf_freq);    
     wf.updateFreqSel(curr_rf_freq);
     get_view_offset(curr_demod_mode, curr_tune_bandwidth, &wf_sel_loff, &wf_sel_roff);
     wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
 
+    struct Funcs { static bool ItemGetter(void* data, int n, const char** out_str) {
+        *out_str = ((std::vector<const char*>*)data)->at(n); return true;
+    }
+    };
+    
     bool show_demo_window = false;
     while (!glfwWindowShouldClose(window))
     {
@@ -270,17 +293,17 @@ int main(int, char**)
 
             if (band_center_MHz*1e6 != rf_band_center){
                 rf_band_center = band_center_MHz*1e6;                
-                rx->set_rf_freq(rf_band_center);
-                wf.setFreqAndBandwidth(rf_band_center, rf_sample_rate);
+                uhd->set_rf_freq(rf_band_center);
+                wf.setFreqAndBandwidth(rf_band_center, rx_sample_rate);
             }
 
-            sig_chain.get_signal_power(&aud_vol);
+            demod.get_signal_power(&aud_vol);
             ImGui::VolumeMeter(aud_vol, 0.0, -60.0f, 0.0f, ImVec2(180, 20));
             ImGui::NewLine();
             ImGui::SliderFloat("Gain", &gain, 10.0f, 60.0f, "%.2f dB");
             if (gain != curr_rf_gain){
                 curr_rf_gain = gain;
-                sig_chain.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
+                demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
             }
             
             ImGui::NewLine();
@@ -299,50 +322,74 @@ int main(int, char**)
                 curr_tune_bandwidth = bw;
             }
             
-            if ((curr_rf_freq - rf_band_center)/rf_sample_rate*2.0 != norm_cf
-               || curr_tune_bandwidth/rf_sample_rate*2.0 != norm_bw
+            if ((curr_rf_freq - rf_band_center)/rx_sample_rate*2.0 != norm_rx_cf
+               || curr_tune_bandwidth/rx_sample_rate*2.0 != norm_rx_bw
                || mode != curr_demod_mode)
             {
-                norm_cf = (curr_rf_freq - rf_band_center)/rf_sample_rate*2.0;
-                norm_bw = (curr_tune_bandwidth/2)/rf_sample_rate*2.0;
-                sig_chain.tune(mode
-                              ,norm_cf
-                              ,norm_ssb_offset
-                              ,norm_bw
-                              );
+                norm_rx_cf = (curr_rf_freq - rf_band_center)/rx_sample_rate*2.0;
+                norm_rx_bw = (curr_tune_bandwidth/2)/rx_sample_rate*2.0;
+                demod.tune(mode, norm_rx_cf, norm_rx_ssb_offset, norm_rx_bw);
                 curr_demod_mode = mode;
-
                 get_view_offset(curr_demod_mode, curr_tune_bandwidth, &wf_sel_loff, &wf_sel_roff);
                 wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
+
+
+                norm_tx_cf = (curr_rf_freq - rf_band_center)/tx_sample_rate*2.0;
+                norm_tx_bw = (curr_tune_bandwidth/2)/tx_sample_rate*2.0;
+                mod.tune(mode, norm_tx_cf, norm_tx_ssb_offset, norm_tx_bw);
             }
 
             {
-                struct Funcs { static bool ItemGetter(void* data, int n, const char** out_str) {
-                    *out_str = ((std::vector<const char*>*)data)->at(n); return true;
-                }
-                };
-
                 int item = curr_audout_dev;
                 ImGui::Combo("Audio Out Dev", &item, &Funcs::ItemGetter, &aud_out_devices, aud_out_devices.size());
                 if (item != curr_audout_dev){
                     audio_out.change_dev(aud_out_devices[item]);
                     curr_audout_dev = audio_out.dev();
+                    strcpy(audout_name, aud_out_devices[item]);
+                }
+
+            }
+
+            ImGui::NewLine();
+            {
+                float vol;
+                bool test = test_tone_enable;
+                float tx_gain = curr_tx_gain; 
+                mod.get_signal_power(&vol);
+                ImGui::VolumeMeter(vol, 0, -40.0f, 20.0f, ImVec2(180, 20));
+                ImGui::NewLine();
+                ImGui::SliderFloat("Tx Gain", &tx_gain, 10.0f, 60.0f, "%.2f dB");
+                if (tx_gain != curr_tx_gain){
+                    mod.set_if_gain(tx_gain);
+                    curr_tx_gain = tx_gain;
                 }
                 
                 ImGui::NewLine();
-                item = curr_audin_dev;
+                int item = curr_audin_dev;                
                 ImGui::Combo("Audio In Dev", &item, &Funcs::ItemGetter, &aud_in_devices, aud_in_devices.size());
                 if(item !=curr_audin_dev){
                     audio_in.change_dev(aud_in_devices[item]);
                     curr_audin_dev = audio_in.dev();
+                    strcpy(audin_name,aud_in_devices[item]);
+                }
+
+                ImGui::Checkbox("Test Tone", &test);
+                if (test != test_tone_enable)
+                {
+                    test_tone_enable = test;
+                    audio_in.enable_test_tone(test_tone_enable);
                 }
             }
+
+            
             ImGui::NewLine();
             if (ImGui::Button("Save")){
                 FILE *fp = fopen("uhd_hf.settings", "w");
-                fprintf(fp, "band_center: %.6le, sample_rate: %6le\n", rf_band_center, rf_sample_rate);                
+                fprintf(fp, "band_center: %.6le, sample_rate: %6le\n", rf_band_center, rx_sample_rate);                
                 fprintf(fp, "rf: %.6le, bw: %.6le, mode: %d\n", curr_rf_freq, curr_tune_bandwidth, curr_demod_mode);
-                fprintf(fp, "if gain: %.6f\n", curr_rf_gain);
+                fprintf(fp, "if gain: %f, tx gain: %f \n", curr_rf_gain, curr_tx_gain);
+                fprintf(fp, "audio input: %s\n", audin_name);
+                fprintf(fp, "audio output: %s\n", audout_name);
                 fclose(fp);
             }
             ImGui::End();
@@ -360,11 +407,12 @@ int main(int, char**)
         glfwSwapBuffers(window);
     }
     
-    uhd_fe::stop(rx);    
-    sig_chain.stop();
-
+    uhd_fe::stop(uhd);    
+    demod.stop();
+    mod.stop();
+    uhd_thread.join();
     rx_thread.join();
-    proc_thread.join();
+    tx_thread.join();
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -375,7 +423,7 @@ int main(int, char**)
 
     delete[] fft_mag;
     delete[] cplx_data;
-    delete rx;
+    delete uhd;
     return 0;
 }
 

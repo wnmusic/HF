@@ -1,6 +1,7 @@
 #include "pa_source.h"
 #include <exception>
 #include <iostream>
+#include <math.h>
 
 pa_source::pa_source(const char* dev_name)
 {
@@ -12,7 +13,6 @@ pa_source::pa_source(const char* dev_name)
         throw std::runtime_error("PA intialized failed");
     }
 
-    
     bzero( &inputParameters, sizeof( inputParameters ) );
     inputParameters.channelCount = 1;       /* stereo input */
     inputParameters.sampleFormat = paFloat32; /* 32 bit floating point input */
@@ -32,7 +32,9 @@ pa_source::pa_source(const char* dev_name)
             }
         }
     }
-    
+
+
+
     inputParameters.device = devNum >= 0 ? devNum : valid_dev_number[0];
     inputParameters.suggestedLatency =  Pa_GetDeviceInfo( inputParameters.device )->defaultLowOutputLatency;    
     err = Pa_OpenStream(
@@ -49,6 +51,12 @@ pa_source::pa_source(const char* dev_name)
         throw std::runtime_error("open PA stream error");
     }
 
+    for(int i=0; i<test_table_len; i++ )
+    {
+        test_data.push_back(sinf( 1.0f*i/test_table_len * M_PI * 2. ));
+    }    
+    test_sample = 0;
+    
     Pa_StartStream( stream );
 }
 
@@ -94,12 +102,24 @@ pa_source::change_dev(const char* dev_name)
 
     Pa_StartStream( stream );
 }
-                       
+
 unsigned pa_source::read(void*buf, int num_samples)
 {
     int err =  Pa_ReadStream(stream, (float*)buf, num_samples);
-    if (err){
-        return 0;
+    if (err ){
+        std::cerr << Pa_GetErrorText(err) << "code: " << err << std::endl;
+        if (paInputOverflow != err){
+            return 0;
+        }
+    }
+    if (b_test_tone){
+        float *ptr = (float*)buf;
+        for (int i=0; i<num_samples; i++){
+            ptr[i] = test_data[test_sample++];
+            if (test_sample >= test_table_len){
+                test_sample = 0;
+            }
+        }
     }
     return num_samples;
 }

@@ -8,7 +8,7 @@
 class pa_source : public source_ifce
 {
 public:
-    virtual double get_sample_rate(){ return 1.0*sample_rate;}
+    virtual double get_source_rate(){ return 1.0*sample_rate;}
     virtual unsigned read(void* buf, int num_samples);
     
     ~pa_source();
@@ -25,14 +25,21 @@ public:
         return 0;
     }
 
+    void enable_test_tone(bool flag){
+        b_test_tone = flag;
+    }
+
 private:        
     PaStream *stream;
     PaStreamParameters inputParameters;    
-    static const unsigned sample_rate = 8000;
-    static const unsigned block_size = 80;
+    static const unsigned sample_rate = 16000;
+    static const unsigned block_size = 160;
+    static const int test_table_len = sample_rate / 400; /* 400Hz */
     std::vector<const char*> valid_dev_names;
     std::vector<int> valid_dev_number;
-    
+    std::vector<float> test_data;
+    int test_sample;
+    bool b_test_tone;
 };
 
 

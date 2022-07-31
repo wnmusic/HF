@@ -11,8 +11,8 @@ ssb_modulator::ssb_modulator(int          mode
                               , m_sink(p_sink)
 {
     static const unsigned taps_per_poly = 13;
-    if_rate = m_sink->get_sample_rate();
-    audio_rate = m_source->get_sample_rate();
+    if_rate = m_sink->get_sink_rate();
+    audio_rate = m_source->get_source_rate();
 
     interp = (unsigned)floor(if_rate/audio_rate);
     block_size2 = (unsigned)floor(audio_rate * 0.016);
@@ -52,15 +52,15 @@ void ssb_modulator::work(void)
     while(starting){
         
         unsigned n_aud_samples = (unsigned)ceilf(aud_conv_rate * (block_size2 - resample_buf_pos));
+
         if(m_source->read(p_scratch_buf[0], n_aud_samples) != n_aud_samples){
             break;
         }
-        
         float *p_aud = (float*)p_scratch_buf[0];
             
         for(int i=0; i<n_aud_samples; i++){
-            p_aud[i] *= m_if_gain;
             m_sig_amp = m_sig_amp * 0.9f + 0.1f * p_aud[i] *p_aud[i];
+            p_aud[i] *= m_if_gain;
         }
 
         int nout = m_resampler->process(p_aud, n_aud_samples

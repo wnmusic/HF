@@ -17,7 +17,7 @@ public:
     virtual unsigned write(void* buf, int num_samples){
         return fwrite(buf, sizeof(T), num_samples, m_file);
     }
-    virtual double get_sample_rate(void) { return m_rate;}
+    virtual double get_sink_rate(void) { return m_rate;}
 private:
     FILE *m_file;
     double m_rate;

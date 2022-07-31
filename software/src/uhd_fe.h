@@ -26,29 +26,41 @@ public:
     }
     double get_rf_freq(void){return m_rx_freq;}
 
-    void set_if_bandwidth(double bw)
+    void set_rx_bandwidth(double bw)
     {
         usrp->set_rx_bandwidth(bw);
-        usrp->set_tx_bandwidth(bw);        
         m_rx_bw = usrp->get_rx_bandwidth();
-        std::cout << boost::format("Actual RX Bandwidth: %f MHz...") % (usrp->get_rx_bandwidth() / 1e6) << std::endl << std::endl;
+        std::cout << boost::format("Actual RX Bandwidth: %f MHz...") % (m_rx_bw / 1e6) << std::endl << std::endl;
     }
-    double get_if_bandwidth(void){return m_rx_bw;}
+    double get_rx_bandwidth(void){return m_rx_bw;}
 
-    void set_sample_rate(double rate)
+
+    void set_tx_bandwidth(double bw){
+        usrp->set_tx_bandwidth(bw);        
+        m_tx_bw = usrp->get_tx_bandwidth();
+        std::cout << boost::format("Actual TX Bandwidth: %f MHz...") % (m_tx_bw / 1e6) << std::endl << std::endl;        
+    }
+
+    void set_rx_sample_rate(double rate)
     {
         usrp->set_rx_rate(rate);
-        usrp->set_tx_rate(rate);
-        m_rate = usrp->get_rx_rate();
-        std::cout << boost::format("Actual RX Rate: %f Msps...") % ( usrp->get_rx_rate() / 1e6) << std::endl << std::endl;
+        m_rx_rate = usrp->get_rx_rate();
+        std::cout << boost::format("Actual RX Rate: %f Msps...") % ( m_rx_rate / 1e6) << std::endl << std::endl;
     }
 
+    void set_tx_sample_rate(double rate)
+    {
+        usrp->set_tx_rate(rate);
+        m_tx_rate = usrp->get_tx_rate();
+        std::cout << boost::format("Actual TX Rate: %f Msps...") % ( m_tx_rate / 1e6) << std::endl << std::endl;
+    }
+    
 
     void set_rx_gain(double gain)
     {
         usrp->set_rx_gain(gain);
         m_rx_gain = usrp->get_rx_gain();
-        std::cout << boost::format("Actual RX Gain: %f dB...") % usrp->get_rx_gain() << std::endl << std::endl;
+        std::cout << boost::format("Actual RX Gain: %f dB...") % m_rx_gain << std::endl << std::endl;
     }
     double get_rx_gain(void){return m_rx_gain;}
 
@@ -68,11 +80,13 @@ public:
           ,std::string &subdev
           ,std::string &ref
           ,unsigned buf_size = 8192*16
-          ,double rate = 1e6
           ,double freq = 21.225e6
+          ,double rx_rate = 1e6
+          ,double tx_rate = 1e6
           ,double rx_gain = 6
           ,double tx_gain = 6
-          ,double bw = 1e6
+          ,double rx_bw = 1e6
+          ,double tx_bw = 1e6
           );
     ~uhd_fe();
     
@@ -91,12 +105,19 @@ public:
     }
     virtual unsigned read(void* buf, int num_samples);
     virtual unsigned write(void* buf, int num_samples);
-    virtual double get_sample_rate(void);
+    virtual double get_source_rate(void){
+        return m_rx_rate;
+    }
+    virtual double get_sink_rate(void){
+        return m_tx_rate;
+    }
 
 private:
     double m_rx_freq;
     double m_rx_bw;
-    double m_rate;
+    double m_tx_bw;
+    double m_rx_rate;
+    double m_tx_rate;    
     double m_rx_gain;
     double m_tx_gain;
     unsigned m_samps_per_buff;
