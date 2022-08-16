@@ -90,17 +90,6 @@ F 3 "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf" H 2
 	1    2300 1750
 	1    0    0    -1  
 $EndComp
-$Comp
-L Relay:G5LE-1 K1
-U 1 1 62E80542
-P 3250 1850
-F 0 "K1" V 2683 1850 50  0000 C CNN
-F 1 "G5LE-1" V 2774 1850 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 3700 1800 50  0001 L CNN
-F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 3250 1850 50  0001 C CNN
-	1    3250 1850
-	0    1    1    0   
-$EndComp
 Wire Wire Line
 	2150 3150 2050 3150
 Wire Wire Line
@@ -179,12 +168,12 @@ F 3 "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf" H 2
 	1    0    0    -1  
 $EndComp
 $Comp
-L Relay:G5LE-1 K2
+L Mylib:G5LE-1A_SPST K2
 U 1 1 62E83498
 P 3300 3250
 F 0 "K2" V 2733 3250 50  0000 C CNN
 F 1 "G5LE-1" V 2824 3250 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 3750 3200 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 3750 3200 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 3300 3250 50  0001 C CNN
 	1    3300 3250
 	0    1    1    0   
@@ -267,12 +256,12 @@ F 3 "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf" H 2
 	1    0    0    -1  
 $EndComp
 $Comp
-L Relay:G5LE-1 K3
+L Mylib:G5LE-1A_SPST K3
 U 1 1 62E8514F
 P 3350 4550
 F 0 "K3" V 2783 4550 50  0000 C CNN
 F 1 "G5LE-1" V 2874 4550 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 3800 4500 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 3800 4500 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 3350 4550 50  0001 C CNN
 	1    3350 4550
 	0    1    1    0   
@@ -355,23 +344,23 @@ F 3 "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf" H 2
 	1    0    0    -1  
 $EndComp
 $Comp
-L Relay:G5LE-1 K4
+L Mylib:G5LE-1A_SPST K4
 U 1 1 62E87CE0
 P 3250 5800
 F 0 "K4" V 2683 5800 50  0000 C CNN
 F 1 "G5LE-1" V 2774 5800 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 3700 5750 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 3700 5750 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 3250 5800 50  0001 C CNN
 	1    3250 5800
 	0    1    1    0   
 $EndComp
 $Comp
-L Relay:G5LE-1 K5
+L Mylib:G5LE-1A_SPST K5
 U 1 1 62E8C862
 P 5700 1850
 F 0 "K5" V 5133 1850 50  0000 C CNN
 F 1 "G5LE-1" V 5224 1850 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 6150 1800 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 6150 1800 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 5700 1850 50  0001 C CNN
 	1    5700 1850
 	0    1    1    0   
@@ -391,34 +380,34 @@ F 3 "" H 5250 1300 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L Relay:G5LE-1 K6
+L Mylib:G5LE-1A_SPST K6
 U 1 1 62E930D5
 P 5700 3200
 F 0 "K6" V 5133 3200 50  0000 C CNN
 F 1 "G5LE-1" V 5224 3200 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 6150 3150 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 6150 3150 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 5700 3200 50  0001 C CNN
 	1    5700 3200
 	0    1    1    0   
 $EndComp
 $Comp
-L Relay:G5LE-1 K7
+L Mylib:G5LE-1A_SPST K7
 U 1 1 62E95284
 P 5700 4550
 F 0 "K7" V 5133 4550 50  0000 C CNN
 F 1 "G5LE-1" V 5224 4550 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 6150 4500 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 6150 4500 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 5700 4550 50  0001 C CNN
 	1    5700 4550
 	0    1    1    0   
 $EndComp
 $Comp
-L Relay:G5LE-1 K8
+L Mylib:G5LE-1A_SPST K8
 U 1 1 62E9789A
 P 5700 5900
 F 0 "K8" V 5133 5900 50  0000 C CNN
 F 1 "G5LE-1" V 5224 5900 50  0000 C CNN
-F 2 "Relay_THT:Relay_SPDT_Omron-G5LE-1" H 6150 5850 50  0001 L CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 6150 5850 50  0001 L CNN
 F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 5700 5900 50  0001 C CNN
 	1    5700 5900
 	0    1    1    0   
@@ -640,8 +629,6 @@ Wire Wire Line
 Wire Wire Line
 	8350 1550 7550 1550
 Wire Wire Line
-	3550 2150 3550 1950
-Wire Wire Line
 	3600 3550 3600 3350
 Wire Wire Line
 	3650 4650 3650 4850
@@ -655,4 +642,17 @@ Wire Wire Line
 	6000 3300 6000 3500
 Wire Wire Line
 	6000 1950 6000 2150
+Wire Wire Line
+	3550 2150 3550 1950
+$Comp
+L Mylib:G5LE-1A_SPST K1
+U 1 1 62E80542
+P 3250 1850
+F 0 "K1" V 2683 1850 50  0000 C CNN
+F 1 "G5LE-1" V 2774 1850 50  0000 C CNN
+F 2 "Myfootprint:Relay_SPST_Omron-G5LE" H 3700 1800 50  0001 L CNN
+F 3 "http://www.omron.com/ecb/products/pdf/en-g5le.pdf" H 3250 1850 50  0001 C CNN
+	1    3250 1850
+	0    1    1    0   
+$EndComp
 $EndSCHEMATC

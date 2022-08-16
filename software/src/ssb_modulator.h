@@ -76,6 +76,5 @@ private:
     float *p_resampled;
     unsigned resample_buf_pos;
 
-    
     debug_buf <std::complex<float> > *p_if_buf;
 };

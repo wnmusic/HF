@@ -112,6 +112,10 @@ public:
         return m_tx_rate;
     }
 
+    void set_ptt(bool on){
+        b_ptt_on_async = on;
+    }
+
 private:
     double m_rx_freq;
     double m_rx_bw;
@@ -139,6 +143,9 @@ private:
     bool m_stop_rx;
     std::mutex rx_mutex;
     std::condition_variable rx_condvar;
+
+    bool b_ptt_on_async;
+    bool b_ptt_on;
     
 };
 

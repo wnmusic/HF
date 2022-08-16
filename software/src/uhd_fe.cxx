@@ -49,6 +49,8 @@ uhd_fe::uhd_fe(std::string &device
 
     m_ringbuf = new ring_buffer<std::complex<float>>(buf_size);
     m_stop_rx = true;
+    b_ptt_on_async = false;
+    b_ptt_on = false;
 }
 
 uhd_fe::~uhd_fe()
@@ -72,10 +74,6 @@ uhd_fe::work()
     stream_cmd.stream_mode = uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS;
     stream_cmd.stream_now = false;
     stream_cmd.time_spec = usrp->get_time_now() + uhd::time_spec_t(0.5);
-
-    tx_md.start_of_burst = true;
-    tx_md.has_time_spec  = false;
-    tx_md.end_of_burst   = false;
 
     
     m_rx_stream->issue_stream_cmd(stream_cmd); // tells all channels to stream
@@ -125,10 +123,29 @@ unsigned uhd_fe::read(void *ptr, int num_samples)
 
 unsigned uhd_fe::write(void *ptr, int num_samples)
 {
-    return m_tx_stream->send(ptr, num_samples, tx_md);
-    tx_md.start_of_burst = false;
-    tx_md.end_of_burst   = false;
-    
+
+    if (b_ptt_on_async && !b_ptt_on){
+
+        tx_md.start_of_burst = true;
+        tx_md.has_time_spec  = false;
+        tx_md.end_of_burst   = false;
+        b_ptt_on = true;
+
+        return m_tx_stream->send(ptr, num_samples, tx_md);        
+    }
+
+    if (b_ptt_on && !b_ptt_on_async){
+        tx_md.start_of_burst = false;
+        tx_md.end_of_burst   = true;
+        tx_md.has_time_spec  = false;
+        b_ptt_on = false;
+
+        return m_tx_stream->send(ptr, num_samples, tx_md);
+
+    }
+
+    /* not really write to hadware */
+    return num_samples;
 }
 
 

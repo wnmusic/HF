@@ -379,6 +379,13 @@ int main(int, char**)
                     test_tone_enable = test;
                     audio_in.enable_test_tone(test_tone_enable);
                 }
+
+                ImGui::NewLine();
+                if (ImGui::Button("PTT")){
+                    uhd->set_ptt(true);
+                }else{
+                    uhd->set_ptt(false);
+                }
             }
 
             

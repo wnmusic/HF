@@ -77,7 +77,7 @@ void ssb_modulator::work(void)
         if(p_if_buf){
             p_if_buf->write(p_scratch_buf[1], block_size, if_rate);
         }
-            
+
         if (m_sink->write(p_scratch_buf[1], block_size) != block_size){
             std::cerr<< "o";
         }
