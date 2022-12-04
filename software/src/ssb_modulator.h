@@ -40,7 +40,7 @@ public:
     }
 
     void set_if_gain(float if_gain){
-        m_if_gain = if_gain;
+        m_if_gain = powf(10.0f, if_gain*0.05f);
     }
 
     void set_fft_buf(debug_buf <std::complex <float> > *p_fft)

@@ -12,6 +12,13 @@
 #include "source_ifce.h"
 #include "sink_ifce.h"
 
+enum{
+    GPIO_TX_SEL_7M = 1,
+    GPIO_TX_SEL_14M = 2,
+    GPIO_TX_SEL_21M = 3,    
+    GPIO_TX_SEL_28M = 4,
+};
+
 class uhd_fe: public source_ifce, public sink_ifce
 {
 public:
@@ -116,6 +123,11 @@ public:
         b_ptt_on_async = on;
     }
 
+    void set_gpio(int gpio){
+        gpio = gpio > 4 ? 4 : (gpio < 1 ? 1 : gpio);
+        usrp->set_gpio_attr("RXA", "OUT", (0x01<<gpio), gpio_mask);
+    }
+
 private:
     double m_rx_freq;
     double m_rx_bw;
@@ -146,7 +158,15 @@ private:
 
     bool b_ptt_on_async;
     bool b_ptt_on;
-    
+
+    static const uint32_t atr_mask = 1;
+    /* current wiring: RXA
+       GPIO1 - 28M
+       GPIO2 - 21M
+       GPIO3 - 7M
+       GPIO4 - 14M
+    */
+    static const uint32_t gpio_mask = 0x1E;
 };
 
 #endif

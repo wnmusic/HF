@@ -48,19 +48,35 @@ ssb_modulator::~ssb_modulator()
 void ssb_modulator::work(void)
 {
     starting = true;
+    unsigned sig_power_hold_cnt = 0;
 
     while(starting){
         
         unsigned n_aud_samples = (unsigned)ceilf(aud_conv_rate * (block_size2 - resample_buf_pos));
+        unsigned n_aud_read;
 
-        if(m_source->read(p_scratch_buf[0], n_aud_samples) != n_aud_samples){
-            break;
+        if((n_aud_read = m_source->read(p_scratch_buf[0], n_aud_samples)) != n_aud_samples){
+            std::cerr<< "not enought audio samples: " << n_aud_read <<"ask " << n_aud_samples << std::endl ;
+            continue;
         }
         float *p_aud = (float*)p_scratch_buf[0];
+        float max = 0.0f;
             
         for(int i=0; i<n_aud_samples; i++){
-            m_sig_amp = m_sig_amp * 0.9f + 0.1f * p_aud[i] *p_aud[i];
+            float p = p_aud[i] * p_aud[i];
+            max = max < p ? p : max;
             p_aud[i] *= m_if_gain;
+        }
+        max = max * m_if_gain * m_if_gain;
+        if (max > m_sig_amp){
+            m_sig_amp = max;
+            sig_power_hold_cnt = 10;
+        }
+        else if (sig_power_hold_cnt > 0){
+            sig_power_hold_cnt--;
+        }
+        else{
+            m_sig_amp = m_sig_amp * 0.9f + 0.1f*max;
         }
 
         int nout = m_resampler->process(p_aud, n_aud_samples
@@ -86,6 +102,7 @@ void ssb_modulator::work(void)
     
 void ssb_modulator::tune(int mode, float cf, float offset, float bw)
 {
+    printf("mode: %d, cf: %f: offset: %f, bw: %f\n", mode, cf, offset, bw);
     if (mod_mode != mode || cf != center_freq || ssb_offset != offset)
     {
         if(mode == AM_SSB_USB_MODE){

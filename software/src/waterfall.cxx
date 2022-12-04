@@ -111,6 +111,10 @@ namespace ImGui {
         viewBandwidth = bw;
         lowerFreq = (centerFreq ) - (viewBandwidth / 2.0);
         upperFreq = (centerFreq ) + (viewBandwidth / 2.0);
+
+        if (m_freqhandler){
+            m_freqhandler(cf, m_freqhandler_context);
+        }
     }
 
     void WaterFall::drawFFT(float *latestFFT) {

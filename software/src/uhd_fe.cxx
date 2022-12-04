@@ -38,7 +38,7 @@ uhd_fe::uhd_fe(std::string &device
     set_tx_gain(tx_gain);    
     set_rx_bandwidth(rx_bw);
     set_tx_bandwidth(tx_bw);
-    
+
     m_rx_stream = usrp->get_rx_stream(stream_args);
     m_tx_stream = usrp->get_tx_stream(stream_args);
 
@@ -51,6 +51,16 @@ uhd_fe::uhd_fe(std::string &device
     m_stop_rx = true;
     b_ptt_on_async = false;
     b_ptt_on = false;
+
+    //setting up GPIO 0 for TX
+    usrp->set_gpio_attr("RXA", "CTRL", 1, atr_mask | gpio_mask);
+    usrp->set_gpio_attr("RXA", "DDR",  1|(gpio_mask), atr_mask | gpio_mask);
+    usrp->set_gpio_attr("RXA", "ATR_0X", 0, atr_mask);
+    usrp->set_gpio_attr("RXA", "ATR_RX", 0, atr_mask);
+    usrp->set_gpio_attr("RXA", "ATR_TX", 1, atr_mask);
+    usrp->set_gpio_attr("RXA", "ATR_XX", 1, atr_mask);
+
+    set_gpio(GPIO_TX_SEL_21M);
 }
 
 uhd_fe::~uhd_fe()
@@ -133,15 +143,20 @@ unsigned uhd_fe::write(void *ptr, int num_samples)
 
         return m_tx_stream->send(ptr, num_samples, tx_md);        
     }
-
-    if (b_ptt_on && !b_ptt_on_async){
+    else if (b_ptt_on && !b_ptt_on_async){
         tx_md.start_of_burst = false;
         tx_md.end_of_burst   = true;
         tx_md.has_time_spec  = false;
         b_ptt_on = false;
 
         return m_tx_stream->send(ptr, num_samples, tx_md);
+    }
+    else if (b_ptt_on){
 
+        tx_md.start_of_burst = false;
+        tx_md.has_time_spec  = false;
+        tx_md.end_of_burst   = false;
+        return m_tx_stream->send(ptr, num_samples, tx_md);
     }
 
     /* not really write to hadware */

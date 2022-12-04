@@ -69,7 +69,7 @@ void upsamp_fxlat_filter::set_center(float center, float offset)
     m_offset = offset > 1.0f ? 1.0f : offset < -1.0f ? -1.0f : offset;
     /* notice that m_taps is the filipped version of taps */
     for (unsigned i = m_n_taps -1, j=0; j<m_n_taps; i--,j++){
-        m_poly_taps[i%m_poly][i/m_poly] = m_float_taps[j] * lv_cmake(cosf(j*m_center*M_PI), sinf(j*m_center*M_PI));
+        m_poly_taps[i%m_poly][i/m_poly] = m_poly * m_float_taps[j] * lv_cmake(cosf(j*m_center*M_PI), sinf(j*m_center*M_PI));
     }
     m_phase_inc = lv_cmake(cosf((m_center + m_offset) * M_PI * m_poly), sinf((m_center+m_offset) * M_PI * m_poly));
 }

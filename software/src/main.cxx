@@ -21,8 +21,7 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <uhd/utils/safe_main.hpp>
 #include <uhd/utils/thread.hpp>
-#include "pa_sink.h"
-#include "pa_source.h"
+#include "sdl_audio_impl.h"
 #include "spectrum.h"
 #include "demod_am.h"
 #include "ssb_modulator.h"
@@ -139,8 +138,10 @@ int main(int, char**)
     int curr_demod_mode = AM_SSB_LSB_MODE;
     int curr_audout_dev = -1;
     int curr_audin_dev = -1;
-    float curr_tx_gain = 20.0f;
     bool test_tone_enable = false;
+    int  ham_band_idx = -1;
+    float max_tx_gain = -20.0;
+    float curr_tx_gain = max_tx_gain;
     
     float wf_sel_loff, wf_sel_roff;
     unsigned fft_size = 1024;
@@ -154,6 +155,8 @@ int main(int, char**)
     FILE *fp = fopen("uhd_hf.settings", "rb");
     char audin_name[256] = {0};
     char audout_name[256] = {0};
+
+
     if (fp){
         unsigned ret;
         ret = fscanf(fp, "band_center: %le, sample_rate: %le\n", &rf_band_center, &rx_sample_rate);
@@ -163,37 +166,8 @@ int main(int, char**)
         ret = fscanf(fp, "audio output: %s\n", audout_name);
         fclose(fp);
     }
-
-
-    pa_sink   audio_out(NULL);
-    pa_source audio_in(NULL);
-    std::vector<const char*> aud_in_devices = audio_in.get_device_names();
-    std::vector<const char*> aud_out_devices = audio_out.get_device_names();
     
-    for (int i=0; i<aud_in_devices.size(); i++){
-        if (aud_in_devices[i] == audin_name){
-            curr_audin_dev = i;
-            break;
-        }
-    }
-    if (curr_audin_dev >= 0 && curr_audin_dev != audio_in.dev()){
-        audio_in.change_dev(audin_name);
-    }else{
-        curr_audin_dev = audio_in.dev();
-    }
-
-    for (int i=0; i<aud_out_devices.size(); i++){
-        if (aud_out_devices[i] == audout_name){
-            curr_audout_dev = i;
-            break;
-        }
-    }
-    if (curr_audout_dev >=0 && curr_audout_dev != audio_out.dev()){
-        audio_out.change_dev(audout_name);
-    }
-    else{
-        curr_audout_dev = audio_out.dev();
-    }
+    sdl_audio audio_dev;
 
     std::string device("addr=192.168.1.21");
     std::string subdev("A:A");
@@ -222,7 +196,7 @@ int main(int, char**)
                   ,norm_rx_bw
                   ,norm_rx_ssb_offset
                   ,uhd
-                  ,&audio_out);
+                  ,&audio_dev);
     demod.set_fft_buf(&if_buf);
     demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
 
@@ -234,7 +208,7 @@ int main(int, char**)
                      ,norm_tx_cf
                      ,norm_tx_bw
                      ,norm_tx_ssb_offset
-                     ,&audio_in
+                     ,&audio_dev
                      ,uhd
                      );
     mod.set_if_gain(powf(10.0f, curr_tx_gain/20.0f));
@@ -258,7 +232,7 @@ int main(int, char**)
     }
     };
     
-    bool show_demo_window = false;
+    bool show_demo_window = true;
     while (!glfwWindowShouldClose(window))
     {
         unsigned nb_data, rate;
@@ -289,6 +263,35 @@ int main(int, char**)
             float aud_vol;
             int mode = curr_demod_mode;
             ImGui::Begin("Control & Display", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+            for (int i = 0; i < 4; i++)
+            {
+                const char* band_name[] = {"40m", "20m", "15m", "10m"};
+                float ham_band_center[] = {7.15, 14.175, 21.225, 28.85};
+                int   ham_modes[] = {AM_SSB_LSB_MODE, AM_SSB_LSB_MODE, AM_SSB_USB_MODE, AM_SSB_USB_MODE};
+                int uhd_gpio[] = {GPIO_TX_SEL_7M, GPIO_TX_SEL_14M, GPIO_TX_SEL_21M, GPIO_TX_SEL_28M};
+                float ham_band_max_tx_gain[] = {-0.0, -1.0, -0.0, -0.0}; 
+                
+                if (i > 0)
+                    ImGui::SameLine();
+                ImGui::PushID(i);
+                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i / 7.0f, 0.6f, 0.6f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i / 7.0f, 0.7f, 0.7f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i / 7.0f, 0.8f, 0.8f));
+                if (ImGui::Button(band_name[i]))
+                {
+                    band_center_MHz = ham_band_center[i];
+                    uhd->set_gpio(uhd_gpio[i]);
+                    mode = ham_modes[i];
+                    ham_band_idx = i;
+                    max_tx_gain = ham_band_max_tx_gain[i];
+                    curr_tx_gain = max_tx_gain;
+                    mod.set_if_gain(curr_tx_gain);
+                }
+                ImGui::PopStyleColor(3);
+                ImGui::PopID();
+            }
+
             ImGui::InputFloat("BandCenter", &band_center_MHz, 0.01f, 1.0f, "%.2f MHz");
 
             if (band_center_MHz*1e6 != rf_band_center){
@@ -323,22 +326,23 @@ int main(int, char**)
             }
             
             if ((curr_rf_freq - rf_band_center)/rx_sample_rate*2.0 != norm_rx_cf
-               || curr_tune_bandwidth/rx_sample_rate*2.0 != norm_rx_bw
+               || (curr_tune_bandwidth/2)/rx_sample_rate*2.0 != norm_rx_bw
                || mode != curr_demod_mode)
             {
                 norm_rx_cf = (curr_rf_freq - rf_band_center)/rx_sample_rate*2.0;
                 norm_rx_bw = (curr_tune_bandwidth/2)/rx_sample_rate*2.0;
-                demod.tune(mode, norm_rx_cf, norm_rx_ssb_offset, norm_rx_bw);
                 curr_demod_mode = mode;
+                
+                demod.tune(mode, norm_rx_cf, norm_rx_ssb_offset, norm_rx_bw);
+                
                 get_view_offset(curr_demod_mode, curr_tune_bandwidth, &wf_sel_loff, &wf_sel_roff);
                 wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
-
 
                 norm_tx_cf = (curr_rf_freq - rf_band_center)/tx_sample_rate*2.0;
                 norm_tx_bw = (curr_tune_bandwidth/2)/tx_sample_rate*2.0;
                 mod.tune(mode, norm_tx_cf, norm_tx_ssb_offset, norm_tx_bw);
             }
-
+/*
             {
                 int item = curr_audout_dev;
                 ImGui::Combo("Audio Out Dev", &item, &Funcs::ItemGetter, &aud_out_devices, aud_out_devices.size());
@@ -349,21 +353,18 @@ int main(int, char**)
                 }
 
             }
+*/
 
             ImGui::NewLine();
             {
-                float vol;
                 bool test = test_tone_enable;
                 float tx_gain = curr_tx_gain; 
-                mod.get_signal_power(&vol);
-                ImGui::VolumeMeter(vol, 0, -40.0f, 20.0f, ImVec2(180, 20));
-                ImGui::NewLine();
-                ImGui::SliderFloat("Tx Gain", &tx_gain, 10.0f, 60.0f, "%.2f dB");
+                ImGui::SliderFloat("Tx Gain", &tx_gain, -20.0f, max_tx_gain, "%.2f dB");
                 if (tx_gain != curr_tx_gain){
                     mod.set_if_gain(tx_gain);
                     curr_tx_gain = tx_gain;
                 }
-                
+                /*
                 ImGui::NewLine();
                 int item = curr_audin_dev;                
                 ImGui::Combo("Audio In Dev", &item, &Funcs::ItemGetter, &aud_in_devices, aud_in_devices.size());
@@ -372,20 +373,34 @@ int main(int, char**)
                     curr_audin_dev = audio_in.dev();
                     strcpy(audin_name,aud_in_devices[item]);
                 }
+                */
 
-                ImGui::Checkbox("Test Tone", &test);
+                ImGui::Checkbox("Test Tone", &test); 
                 if (test != test_tone_enable)
                 {
                     test_tone_enable = test;
-                    audio_in.enable_test_tone(test_tone_enable);
+                    audio_dev.enable_test_tone(test_tone_enable);
                 }
-
                 ImGui::NewLine();
-                if (ImGui::Button("PTT")){
-                    uhd->set_ptt(true);
-                }else{
-                    uhd->set_ptt(false);
+                if (ham_band_idx >= 0){
+                    ImGui::Text("Press Space to talk/Tx");
                 }
+                else{
+                    ImGui::Text("Select a band to transmit");
+                }
+                ImGui::NewLine();
+            }
+
+            if (ImGui::IsKeyDown(ImGuiKey_Space) && ham_band_idx >= 0) {
+                float vol;                    
+                uhd->set_ptt(true);                    
+                mod.get_signal_power(&vol);
+                ImGui::VolumeMeter(vol, 0, -40.0f, 20.0f, ImVec2(180, 20));
+                ImGui::SameLine(); ImGui::Text("audio: %.02f dB", vol);
+            }
+
+            if (ImGui::IsKeyReleased(  ImGuiKey_Space)){
+                uhd->set_ptt(false);
             }
 
             

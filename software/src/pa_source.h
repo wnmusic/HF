@@ -29,6 +29,7 @@ public:
         b_test_tone = flag;
     }
 
+
 private:        
     PaStream *stream;
     PaStreamParameters inputParameters;    

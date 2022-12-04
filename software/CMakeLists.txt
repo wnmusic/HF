@@ -27,10 +27,11 @@ option(UHD_USE_STATIC_LIBS OFF)
 
 # To add UHD as a dependency to this project, add a line such as this:
 
-find_package(UHD 4.2 EXACT REQUIRED PATHS /usr/local)
+find_package(UHD REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(portaudio)
+find_package(SDL2 REQUIRED)
+
 
 # This example also requires Boost.
 # Set components here, then include UHDBoost to do the actual finding
@@ -46,7 +47,7 @@ include(UHDBoost)
 include_directories(
     ${Boost_INCLUDE_DIRS}
     ${UHD_INCLUDE_DIRS}
-    ${PORTAUDIO_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
     libdsp
     imgui
     imgui/backends
@@ -55,23 +56,29 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 ### Make the executable #######################################################
-add_library(hf src/demod_am.cxx src/ssb_modulator.cxx)
-add_executable(uhd_hf src/uhd_fe.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/pa_sink.cxx src/waterfall.cxx src/pa_source.cxx)
+add_library(hf src/demod_am.cxx src/ssb_modulator.cxx src/sdl_audio_impl.cxx)
+
+add_executable(uhd_hf src/uhd_fe.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/waterfall.cxx)
 
 add_subdirectory(libdsp)
 
 if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE "Release")
 endif()
-target_link_libraries(hf Libdsp)
-target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL ${PORTAUDIO_LIBRARIES} hf)
+target_link_libraries(hf Libdsp ${SDL2_LIBRARIES})
+target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL hf)
 
 enable_testing()
 add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)
-target_link_libraries(test_demod_am Libdsp)
+target_link_libraries(test_demod_am ${SDL2_LIBRARIES} Libdsp )
 
 add_executable(test_modulator test/test_ssb_modulator.cxx $<TARGET_OBJECTS:hf>)
-target_link_libraries(test_modulator Libdsp)
+target_link_libraries(test_modulator ${SDL2_LIBRARIES} Libdsp )
+
+add_executable(test_sdl_audio test/test_sdl_audio.cxx $<TARGET_OBJECTS:hf>)
+target_link_libraries(test_sdl_audio ${SDL2_LIBRARIES} Libdsp )
+
 
 add_test(NAME test_demod_am COMMAND test_demod_am ${CMAKE_CURRENT_SOURCE_DIR}/test/FM_21.1M_sr500k_cf21.25M.data)
 add_test(NAME test_modulator COMMAND test_modulator ${CMAKE_CURRENT_SOURCE_DIR}/test/Audio_400Hz_tone.data)
+add_test(NAME test_sdl_audio COMMAND test_sdl_audio)
