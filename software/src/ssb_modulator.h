@@ -7,7 +7,7 @@
 #include "debug_buf.h"
 #include "common_defs.h"
 #include "hilbert_xfrm.h"
-
+#include "levelling.h"
 
 
 class ssb_modulator
@@ -17,7 +17,6 @@ public:
     ssb_modulator(int          mode
                  ,double       center_freq
                  ,double       bw
-                 ,double       ssb_off
                  ,source_ifce *p_source
                  ,sink_ifce   *p_sink
                  );
@@ -43,12 +42,16 @@ public:
         m_if_gain = powf(10.0f, if_gain*0.05f);
     }
 
+    void set_peak_amp(float amp){
+        m_leveller->set_peak_level(amp);
+    }
+        
     void set_fft_buf(debug_buf <std::complex <float> > *p_fft)
     {
         p_if_buf = p_fft;
     }
 
-    void tune(int mode, float cf, float ssb_offset, float bw);
+    void tune(int mode, float cf, float bw);
 
     void work();
 
@@ -60,7 +63,6 @@ private:
     unsigned block_size, block_size2;
     double center_freq;
     double mod_bw;
-    double ssb_offset;
     int mod_mode;
     bool starting;
     float m_sig_amp;
@@ -74,6 +76,7 @@ private:
     resample* m_resampler;
     hilbert_xfrm  *m_hilbert;
     float *p_resampled;
+    levelling* m_leveller;
     unsigned resample_buf_pos;
 
     debug_buf <std::complex<float> > *p_if_buf;

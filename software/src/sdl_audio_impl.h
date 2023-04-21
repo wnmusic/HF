@@ -33,7 +33,6 @@ private:
     static const unsigned sample_rate = 8000;
     float *rec_buf;
     unsigned rec_pos;
-    static const int test_table_len = sample_rate / 400; /* 400Hz */
 
     std::vector<float> test_data;
     bool b_test_tone;

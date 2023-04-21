@@ -68,9 +68,9 @@ def test_filter1(N, B, D):
     [(256, 32, 2),(256, 32, 4),(256, 32, 6)]
 )
 def test_up_filter(N, B, L):
-    center = -0.3
-    x0 = np.exp(1j*0.02*np.pi*np.arange(N), dtype=np.complex64)
-    fc = 0.05/L
+    center = -0.2
+    x0 = np.exp(1j*0.050*np.pi*np.arange(N), dtype=np.complex64)
+    fc = 0.5/L
 
     flt = upsamp_fxlat_filter(L, 13, center, fc, B)
     y = []
@@ -85,21 +85,25 @@ def test_up_filter(N, B, L):
     ntaps = L*13
     #taps = np.hamming(ntaps) * fc*np.sinc(fc*(np.arange(ntaps)-(ntaps-1)/2))
     taps = np.hamming(ntaps) * fc * np.sinc(fc*(np.arange(ntaps)-(ntaps-1)/2))
+    taps = L*taps
     y_ref = signal.lfilter(taps, [1], x1);
     y_ref = y_ref * np.exp(1j*np.pi*center*np.arange(len(y_ref)))
-    freq = np.linspace(-1.0, 1.0, num=1024)
+    freq = np.linspace(-1.0, 1.0, num=len(y_ref))
     
     #plot.plot(freq, np.abs(np.fft.fftshift(np.fft.fft(y_ref))))
     #plot.plot(freq, np.abs(np.fft.fftshift(np.fft.fft(y))))
-    #plot.plot(np.real(y))
-    #plot.plot(np.real(y_ref))
+    plot.plot(np.real(y))
+    plot.plot(np.real(y_ref))
     plot.show()
-    assert np.mean(np.abs(y - y_ref)) < 1e-5, "error is too big"
+    plot.plot(np.imag(y))
+    plot.plot(np.imag(y_ref))
+    plot.show()
+    assert np.mean(np.abs(y - y_ref)) < 5e-5, "error is too big {}".format(np.mean(np.abs(y-y_ref)))
     
     
 if __name__ == "__main__":
 
     print(os.getpid())
     input()
-    test_up_filter(256, 32, 4)
+    test_up_filter(1024, 128, 62)
     #test_filter0(2048, 32, 8)

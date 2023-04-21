@@ -105,7 +105,6 @@ void demod_am::work(void)
         if (!m_sink->write(aud, nout)){
             std::cerr<<"x";
         }
-
     }
 }
 

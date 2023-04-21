@@ -51,6 +51,8 @@ uhd_fe::uhd_fe(std::string &device
     m_stop_rx = true;
     b_ptt_on_async = false;
     b_ptt_on = false;
+    fade_state = FADE_STATE_NONE;
+    fading_block_cnt = 0;
 
     //setting up GPIO 0 for TX
     usrp->set_gpio_attr("RXA", "CTRL", 1, atr_mask | gpio_mask);
@@ -61,6 +63,7 @@ uhd_fe::uhd_fe(std::string &device
     usrp->set_gpio_attr("RXA", "ATR_XX", 1, atr_mask);
 
     set_gpio(GPIO_TX_SEL_21M);
+    
 }
 
 uhd_fe::~uhd_fe()
@@ -134,31 +137,58 @@ unsigned uhd_fe::read(void *ptr, int num_samples)
 unsigned uhd_fe::write(void *ptr, int num_samples)
 {
 
+    bool b_xmit = false;
     if (b_ptt_on_async && !b_ptt_on){
 
         tx_md.start_of_burst = true;
         tx_md.has_time_spec  = false;
         tx_md.end_of_burst   = false;
         b_ptt_on = true;
-
-        return m_tx_stream->send(ptr, num_samples, tx_md);        
+        fade_state = FADE_STATE_IN;
     }
     else if (b_ptt_on && !b_ptt_on_async){
         tx_md.start_of_burst = false;
         tx_md.end_of_burst   = true;
         tx_md.has_time_spec  = false;
         b_ptt_on = false;
+        fade_state = FADE_STATE_OUT;
 
-        return m_tx_stream->send(ptr, num_samples, tx_md);
     }
     else if (b_ptt_on){
-
         tx_md.start_of_burst = false;
         tx_md.has_time_spec  = false;
         tx_md.end_of_burst   = false;
-        return m_tx_stream->send(ptr, num_samples, tx_md);
     }
 
+    switch(fade_state){
+    case FADE_STATE_IN:
+        if (fading_block_cnt++ == FADE_BLOCKS){
+            fade_state = FADE_STATE_NONE;
+            fading_block_cnt = 0;
+        }
+        break;
+    case FADE_STATE_OUT:
+        if (fading_block_cnt++ == FADE_BLOCKS){
+            fade_state = FADE_STATE_NONE;
+            fading_block_cnt = 0;
+        }
+        break;
+    case FADE_STATE_NONE:
+    default:
+        fading_block_cnt = 0;
+        break;
+    }
+    
+    if (fade_state == FADE_STATE_IN || fade_state == FADE_STATE_OUT)
+    {
+        memset(ptr, 0, sizeof(std::complex<float>) * num_samples);
+        return m_tx_stream->send(ptr, num_samples, tx_md);
+    }
+    else if (b_ptt_on)
+    {
+        return m_tx_stream->send(ptr, num_samples, tx_md);
+    }
+    
     /* not really write to hadware */
     return num_samples;
 }

@@ -76,7 +76,7 @@ namespace ImGui {
         waterfallFb = new uint32_t[fft_size*waterfallHeight];
         m_selfreq_view_loff = 0.0f;
         m_selfreq_view_roff = 0.0f;
-        
+        lastArrowKeyDuration = 0.0f;
         updatePallette(DEFAULT_COLOR_MAP, 13);
     }
 
@@ -272,6 +272,10 @@ namespace ImGui {
                                                      &mouseHovered, &mouseHeld,
                                                      ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_PressedOnClick);
 
+            bool freqChanged = false;
+            float freqStep = 0.0f;
+            float arrowKeyduration = 0.0f;
+
             
             // handle mouse click
             ImRect fftArea(fftAreaMin, fftAreaMax);
@@ -281,14 +285,43 @@ namespace ImGui {
                fftArea.Contains(mousePos)){
                 const int v_idx = cursor_to_idx(g.IO.MousePos, fftArea, dataWidth);
                 freqSel = lowerFreq + 1.0f*v_idx/dataWidth*viewBandwidth;
-                if (m_freqhandler){
-                    m_freqhandler(freqSel, m_freqhandler_context);
-                }
+                freqChanged = true;
+            }
+
+            //handle arrow keys to adjust frequency
+            if (ImGui::IsKeyDown(ImGuiKey_LeftArrow)){
+                freqStep = -10.0f;
+                arrowKeyduration = ImGui::GetKeyData(ImGuiKey_LeftArrow)->DownDuration;
+            }
+            else if (ImGui::IsKeyDown(ImGuiKey_RightArrow)){
+                freqStep = 10.0;
+                arrowKeyduration = ImGui::GetKeyData(ImGuiKey_RightArrow)->DownDuration;
+            }
+            else if (ImGui::IsKeyDown(ImGuiKey_DownArrow)){
+                freqStep = -100.0;
+                arrowKeyduration = ImGui::GetKeyData(ImGuiKey_DownArrow)->DownDuration;
+            }
+            else if (ImGui::IsKeyDown(ImGuiKey_UpArrow)){
+                freqStep = 100.0;
+                arrowKeyduration = ImGui::GetKeyData(ImGuiKey_UpArrow)->DownDuration;
+            }
+            else {
+                arrowKeyduration = 0.0f;
+                lastArrowKeyDuration = 0.0f;
+            }
+
+            if (arrowKeyduration > lastArrowKeyDuration + 0.02)
+            {
+                freqSel += freqStep;
+                freqChanged = true;
+                lastArrowKeyDuration = arrowKeyduration;
+            }
+
+            if (freqChanged){
                 if (m_freqhandler){
                     m_freqhandler(freqSel, m_freqhandler_context);
                 }
             }
-
         }
     }
 }

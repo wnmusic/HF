@@ -15,7 +15,7 @@ public:
     upsamp_fxlat_filter(int interp, int n_taps_per_poly, float center, float bandwidth, int blksize);    
     ~upsamp_fxlat_filter();
     
-    void set_center(float center, float offset=0.0f);
+    void set_center(float center);
     void set_bandwidth(float bw);
     /* return the output len which is blksize/dec  */
     int process_c2c(std::complex<float>* in, int n_in, std::complex<float>* out, int out_len);
@@ -30,7 +30,6 @@ public:
     int             m_poly;
     int             m_blksize;
     float           m_center;
-    float           m_offset;
     lv_32fc_t       m_phase;
     lv_32fc_t       m_phase_inc;
     float           m_bandwidth;

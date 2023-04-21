@@ -43,6 +43,7 @@ public:
         double div = bessi0(beta);
         unsigned M = ntaps -1;
         float alpha = M*1.0f/2;
+
         for (unsigned i=0; i<=M; i++){
             float x = i*1.0f- alpha;
             float w;

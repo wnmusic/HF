@@ -6,7 +6,7 @@
 #
 
 cmake_minimum_required(VERSION 3.5.1)
-project(uhd_hf CXX)
+project(uhd_hf C CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(OpenGL_GL_PREFERENCE "GLVND")
 
@@ -52,33 +52,51 @@ include_directories(
     imgui
     imgui/backends
     src
+    audproc
+    trace
 )
 link_directories(${Boost_LIBRARY_DIRS})
+add_subdirectory(libdsp)
 
 ### Make the executable #######################################################
-add_library(hf src/demod_am.cxx src/ssb_modulator.cxx src/sdl_audio_impl.cxx)
+add_library(hf src/demod_am.cxx src/ssb_modulator.cxx src/sdl_audio_impl.cxx audproc/levelling.cxx trace/trace.c src/uhd_fe.cxx )
 
-add_executable(uhd_hf src/uhd_fe.cxx src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/waterfall.cxx)
+target_link_libraries(hf Libdsp ${SDL2_LIBRARIES} ${UHD_LIBRARIES} ${Boost_LIBRARIES}  )
 
-add_subdirectory(libdsp)
+add_executable(uhd_hf src/main.cxx imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp src/waterfall.cxx)
+target_link_libraries(uhd_hf glfw OpenGL::GL hf)
+
+
+add_executable(hf_modem src/cmdline.cxx)
+target_link_libraries(hf_modem hf)
 
 if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE "Release")
 endif()
-target_link_libraries(hf Libdsp ${SDL2_LIBRARIES})
-target_link_libraries(uhd_hf ${UHD_LIBRARIES} ${Boost_LIBRARIES} glfw OpenGL::GL hf)
+
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+add_compile_definitions(_DEBUG)
+endif()
+
 
 enable_testing()
-add_executable(test_demod_am test/test_demod_am.cxx $<TARGET_OBJECTS:hf>)
-target_link_libraries(test_demod_am ${SDL2_LIBRARIES} Libdsp )
+add_executable(test_demod_am test/test_demod_am.cxx)
+target_link_libraries(test_demod_am hf)
 
 add_executable(test_modulator test/test_ssb_modulator.cxx $<TARGET_OBJECTS:hf>)
-target_link_libraries(test_modulator ${SDL2_LIBRARIES} Libdsp )
+target_link_libraries(test_modulator hf)
 
 add_executable(test_sdl_audio test/test_sdl_audio.cxx $<TARGET_OBJECTS:hf>)
-target_link_libraries(test_sdl_audio ${SDL2_LIBRARIES} Libdsp )
+target_link_libraries(test_sdl_audio hf)
+
+add_executable(test_levelling test/test_levelling.cxx $<TARGET_OBJECTS:hf>)
+target_link_libraries(test_levelling sndfile hf)
+
+add_executable(test_modem test/test_modem.cxx $<TARGET_OBJECTS:hf>)
+target_link_libraries(test_modem sndfile hf)
 
 
 add_test(NAME test_demod_am COMMAND test_demod_am ${CMAKE_CURRENT_SOURCE_DIR}/test/FM_21.1M_sr500k_cf21.25M.data)
 add_test(NAME test_modulator COMMAND test_modulator ${CMAKE_CURRENT_SOURCE_DIR}/test/Audio_400Hz_tone.data)
 add_test(NAME test_sdl_audio COMMAND test_sdl_audio)
+

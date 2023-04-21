@@ -133,10 +133,7 @@ sdl_audio::sdl_audio()
         }
     }
 
-    for(int i=0; i<test_table_len; i++ )
-    {
-        test_data.push_back(sinf( 1.0f*i/test_table_len * M_PI * 2. ));
-    }    
+
     test_sample = 0;
 
     rec_buf = new float[1024];
@@ -171,10 +168,11 @@ unsigned sdl_audio::read(void* buf, int num_samples)
     {
         float *ptr = (float*)buf;
         for (int i=0; i<num_samples; i++){
-            ptr[i] = test_data[test_sample++];
-            if (test_sample >= test_table_len){
-                test_sample = 0;
-            }
+            ptr[i] = 0.5f*sinf(test_sample*400.0f/sample_rate *2.0f *M_PI)
+                + 0.5f*sinf(test_sample * 1400.0f/sample_rate * 2.0f *M_PI) ;
+            //ptr[i] = sinf(test_sample * 1400.0f/sample_rate * 2.0f *M_PI) ;
+            test_sample++;
+            test_sample = test_sample >= sample_rate ? 0 : test_sample;
         }
         return num_samples;
     }

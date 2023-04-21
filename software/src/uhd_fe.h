@@ -19,6 +19,12 @@ enum{
     GPIO_TX_SEL_28M = 4,
 };
 
+enum{
+    FADE_STATE_NONE = 0,
+    FADE_STATE_IN,
+    FADE_STATE_OUT
+};
+
 class uhd_fe: public source_ifce, public sink_ifce
 {
 public:
@@ -100,15 +106,8 @@ public:
     void work();
     static  void start(void* ctx);
     
-    static  void stop(void* ctx){
-        uhd_fe* obj = (uhd_fe*)ctx;
-        obj->m_stop_rx = true;
-        
-        obj->tx_md.start_of_burst = false;
-        obj->tx_md.has_time_spec  = false;
-        obj->tx_md.end_of_burst   = true;
-
-        obj->m_tx_stream->send("", 0, obj->tx_md);
+    void stop(){
+        m_stop_rx = true;
     }
     virtual unsigned read(void* buf, int num_samples);
     virtual unsigned write(void* buf, int num_samples);
@@ -158,6 +157,10 @@ private:
 
     bool b_ptt_on_async;
     bool b_ptt_on;
+    int fading_block_cnt;
+    int fade_state;
+
+    static const uint32_t FADE_BLOCKS = 10;
 
     static const uint32_t atr_mask = 1;
     /* current wiring: RXA

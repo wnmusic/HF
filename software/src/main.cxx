@@ -142,13 +142,13 @@ int main(int, char**)
     int  ham_band_idx = -1;
     float max_tx_gain = -20.0;
     float curr_tx_gain = max_tx_gain;
-    
+    float b_tx_on = false;
     float wf_sel_loff, wf_sel_roff;
     unsigned fft_size = 1024;
     const int spec_hist_len = 256;
     float *fft_mag = new float[fft_size];    
     debug_buf < std::complex <float> > if_buf(fft_size);    
-    
+    float cached_rx_gain = curr_rf_gain;
     std::complex<float> *cplx_data = new std::complex<float>[fft_size];
     
     spectrum spec(fft_size, true);
@@ -168,10 +168,9 @@ int main(int, char**)
     }
     
     sdl_audio audio_dev;
-
     std::string device("addr=192.168.1.21");
     std::string subdev("A:A");
-    std::string ref("internal");
+    std::string ref("external");
 
     uhd_fe *uhd = new uhd_fe(device
                             ,subdev
@@ -200,14 +199,12 @@ int main(int, char**)
     demod.set_fft_buf(&if_buf);
     demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
 
-    const double norm_tx_ssb_offset = 1500.0/tx_sample_rate * 2.0;
     double norm_tx_cf = (curr_rf_freq - rf_band_center)/tx_sample_rate*2.0;
-    double norm_tx_bw = (curr_tune_bandwidth/2)/tx_sample_rate*2.0;
+    double norm_tx_bw = (curr_tune_bandwidth)/tx_sample_rate*2.0;
     
     ssb_modulator mod(curr_demod_mode
                      ,norm_tx_cf
                      ,norm_tx_bw
-                     ,norm_tx_ssb_offset
                      ,&audio_dev
                      ,uhd
                      );
@@ -232,7 +229,7 @@ int main(int, char**)
     }
     };
     
-    bool show_demo_window = true;
+    bool show_demo_window = false;
     while (!glfwWindowShouldClose(window))
     {
         unsigned nb_data, rate;
@@ -268,9 +265,11 @@ int main(int, char**)
             {
                 const char* band_name[] = {"40m", "20m", "15m", "10m"};
                 float ham_band_center[] = {7.15, 14.175, 21.225, 28.85};
-                int   ham_modes[] = {AM_SSB_LSB_MODE, AM_SSB_LSB_MODE, AM_SSB_USB_MODE, AM_SSB_USB_MODE};
+                int   ham_modes[] = {AM_SSB_LSB_MODE, AM_SSB_USB_MODE, AM_SSB_USB_MODE, AM_SSB_USB_MODE};
                 int uhd_gpio[] = {GPIO_TX_SEL_7M, GPIO_TX_SEL_14M, GPIO_TX_SEL_21M, GPIO_TX_SEL_28M};
-                float ham_band_max_tx_gain[] = {-0.0, -1.0, -0.0, -0.0}; 
+                //float ham_band_max_tx_gain[] = {-5.0, -6.0, -11.0, 0.0}; 
+                //float ham_band_max_tx_gain[] = {-0.0, -0.0, -0.0, 0.0};
+                float ham_band_max_tx_level[] = {0.99, 0.6, 0.4, 0.99};
                 
                 if (i > 0)
                     ImGui::SameLine();
@@ -284,9 +283,10 @@ int main(int, char**)
                     uhd->set_gpio(uhd_gpio[i]);
                     mode = ham_modes[i];
                     ham_band_idx = i;
-                    max_tx_gain = ham_band_max_tx_gain[i];
+                    max_tx_gain = 0.0f;
                     curr_tx_gain = max_tx_gain;
                     mod.set_if_gain(curr_tx_gain);
+                    mod.set_peak_amp(ham_band_max_tx_level[i]);
                 }
                 ImGui::PopStyleColor(3);
                 ImGui::PopID();
@@ -299,16 +299,21 @@ int main(int, char**)
                 uhd->set_rf_freq(rf_band_center);
                 wf.setFreqAndBandwidth(rf_band_center, rx_sample_rate);
             }
-
-            demod.get_signal_power(&aud_vol);
-            ImGui::VolumeMeter(aud_vol, 0.0, -60.0f, 0.0f, ImVec2(180, 20));
-            ImGui::NewLine();
-            ImGui::SliderFloat("Gain", &gain, 10.0f, 60.0f, "%.2f dB");
+            if (!b_tx_on){
+                
+                demod.get_signal_power(&aud_vol);
+                ImGui::VolumeMeter(aud_vol, 0.0, -60.0f, 0.0f, ImVec2(180, 20));
+                ImGui::NewLine();
+                ImGui::SliderFloat("Gain", &gain, 10.0f, 60.0f, "%.2f dB");
+            }
+            else{
+                gain = 0.01f;
+            }
+            
             if (gain != curr_rf_gain){
                 curr_rf_gain = gain;
                 demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
             }
-            
             ImGui::NewLine();
 
             ImGui::SliderFloat("BandWidth", &bw, 2e3f, 10e3f, "%.3g");
@@ -326,11 +331,11 @@ int main(int, char**)
             }
             
             if ((curr_rf_freq - rf_band_center)/rx_sample_rate*2.0 != norm_rx_cf
-               || (curr_tune_bandwidth/2)/rx_sample_rate*2.0 != norm_rx_bw
+               || (curr_tune_bandwidth/2.0)/rx_sample_rate*2.0 != norm_rx_bw
                || mode != curr_demod_mode)
             {
                 norm_rx_cf = (curr_rf_freq - rf_band_center)/rx_sample_rate*2.0;
-                norm_rx_bw = (curr_tune_bandwidth/2)/rx_sample_rate*2.0;
+                norm_rx_bw = (curr_tune_bandwidth/2.0)/rx_sample_rate*2.0;
                 curr_demod_mode = mode;
                 
                 demod.tune(mode, norm_rx_cf, norm_rx_ssb_offset, norm_rx_bw);
@@ -339,21 +344,9 @@ int main(int, char**)
                 wf.setSelFreqViewOffset(wf_sel_loff, wf_sel_roff);
 
                 norm_tx_cf = (curr_rf_freq - rf_band_center)/tx_sample_rate*2.0;
-                norm_tx_bw = (curr_tune_bandwidth/2)/tx_sample_rate*2.0;
-                mod.tune(mode, norm_tx_cf, norm_tx_ssb_offset, norm_tx_bw);
+                norm_tx_bw = curr_tune_bandwidth/tx_sample_rate*2.0;
+                mod.tune(mode, norm_tx_cf, norm_tx_bw);
             }
-/*
-            {
-                int item = curr_audout_dev;
-                ImGui::Combo("Audio Out Dev", &item, &Funcs::ItemGetter, &aud_out_devices, aud_out_devices.size());
-                if (item != curr_audout_dev){
-                    audio_out.change_dev(aud_out_devices[item]);
-                    curr_audout_dev = audio_out.dev();
-                    strcpy(audout_name, aud_out_devices[item]);
-                }
-
-            }
-*/
 
             ImGui::NewLine();
             {
@@ -364,16 +357,6 @@ int main(int, char**)
                     mod.set_if_gain(tx_gain);
                     curr_tx_gain = tx_gain;
                 }
-                /*
-                ImGui::NewLine();
-                int item = curr_audin_dev;                
-                ImGui::Combo("Audio In Dev", &item, &Funcs::ItemGetter, &aud_in_devices, aud_in_devices.size());
-                if(item !=curr_audin_dev){
-                    audio_in.change_dev(aud_in_devices[item]);
-                    curr_audin_dev = audio_in.dev();
-                    strcpy(audin_name,aud_in_devices[item]);
-                }
-                */
 
                 ImGui::Checkbox("Test Tone", &test); 
                 if (test != test_tone_enable)
@@ -397,12 +380,19 @@ int main(int, char**)
                 mod.get_signal_power(&vol);
                 ImGui::VolumeMeter(vol, 0, -40.0f, 20.0f, ImVec2(180, 20));
                 ImGui::SameLine(); ImGui::Text("audio: %.02f dB", vol);
+                b_tx_on = true;
+                if (cached_rx_gain <= -100.0f){
+                    cached_rx_gain = curr_rf_gain;
+                }
             }
 
             if (ImGui::IsKeyReleased(  ImGuiKey_Space)){
                 uhd->set_ptt(false);
+                b_tx_on = false;
+                gain = curr_rf_gain= cached_rx_gain;
+                cached_rx_gain = -100.0f;
+                demod.set_if_gain(powf(10.0f, curr_rf_gain/20.0f));
             }
-
             
             ImGui::NewLine();
             if (ImGui::Button("Save")){
@@ -429,9 +419,10 @@ int main(int, char**)
         glfwSwapBuffers(window);
     }
     
-    uhd_fe::stop(uhd);    
     demod.stop();
     mod.stop();
+    uhd->stop();
+    
     uhd_thread.join();
     rx_thread.join();
     tx_thread.join();

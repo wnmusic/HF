@@ -15,15 +15,13 @@ int main(int argc, char* argv[])
     if (argc > 1 && strstr(argv[1], "Audio_400Hz_tone.data"))
     {
         double cf = (21.1-21.25)*1e6/500e3*2.0;
-        double bw = 1500/500e3*2.0;
-        double off = 1500/500e3*2.0;
+        double bw = 3000/500e3*2.0;
 
-        rawfile_sink<float> sink("mod_out.data", 500000);
-        rawfile_source<std::complex<float>> source(argv[1], 8000);
+        rawfile_sink<std::complex<float>> sink("mod_out.data", 500000);
+        rawfile_source<float> source(argv[1], 8000);
         ssb_modulator sig(mode
                          ,cf
                          ,bw
-                         ,off
                          ,&source
                          ,&sink
                          );
